@@ -1,35 +1,43 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
-
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
 // Require the functions page
-require_once("./functions.php");
+require_once(__DIR__ . '/functions.php');
 
 // Start the session
 session_start();
 // Require the login function code
-require('./login.function.php');
+require(__DIR__ . '/login.function.php');
 
-$url_id = $_GET['id'];
+$url_id = sanitizeInput($_GET['id']);
 
 $url_id = safe_value($url_id);
 $url_id = htmlentities($url_id);
@@ -51,40 +59,40 @@ $mta = get_conf_var('mta');
 // The sql command to pull the data
 $sql = "
  SELECT
-  DATE_FORMAT(timestamp, '" . DATE_FORMAT . " " . TIME_FORMAT . "') AS 'Received on:',
-  hostname AS 'Received by:',
-  clientip AS 'Received from:',
-  headers 'Received Via:',
+  DATE_FORMAT(timestamp, '" . DATE_FORMAT . " " . TIME_FORMAT . "') AS '" . __('receivedon04') . "',
+  hostname AS '" . __('receivedby04') . "',
+  clientip AS '" . __('receivedfrom04') . "',
+  headers '" . __('receivedvia04') . "',
   id AS 'ID:',
-  headers AS 'Message Headers:',
-  from_address AS 'From:',
-  to_address AS 'To:',
-  subject AS 'Subject:',
-  size AS 'Size:',
-  archive AS 'Archive:',
-  'Anti-Virus/Dangerous Content Protection' AS 'HEADER',
+  headers AS '" . __('msgheaders04') . "',
+  from_address AS '" . __('from04') . "',
+  to_address AS '" . __('to04') . "',
+  subject AS '" . __('subject04') . "',
+  size AS '" . __('size04') . "',
+  archive AS 'Archive',
+  '" . __('hdrantivirus04') . "' AS 'HEADER',
   CASE WHEN virusinfected>0 THEN '$yes' ELSE '$no' END AS 'Virus:',
-  CASE WHEN nameinfected>0 THEN '$yes' ELSE '$no' END AS 'Blocked File:',
-  CASE WHEN otherinfected>0 THEN '$yes' ELSE '$no' END AS 'Other Infection:',
+  CASE WHEN nameinfected>0 THEN '$yes' ELSE '$no' END AS '" . __('blkfile04') . "',
+  CASE WHEN otherinfected>0 THEN '$yes' ELSE '$no' END AS '" . __('otherinfec04') . "',
   report AS 'Report:',
   'SpamAssassin' AS 'HEADER',
   CASE WHEN isspam>0 THEN '$yes' ELSE '$no' END AS 'Spam:',
-  CASE WHEN ishighspam>0 THEN '$yes' ELSE '$no' END AS 'High Scoring Spam:',
+  CASE WHEN ishighspam>0 THEN '$yes' ELSE '$no' END AS '" . __('hscospam04') . "',
   CASE WHEN issaspam>0 THEN '$yes' ELSE '$no' END AS 'SpamAssassin Spam:',
-  CASE WHEN isrblspam>0 THEN '$yes' ELSE '$no' END AS 'Listed in RBL:',
-  CASE WHEN spamwhitelisted>0 THEN '$yes' ELSE '$no' END AS 'Spam Whitelisted:',
-  CASE WHEN spamblacklisted>0 THEN '$yes' ELSE '$no' END AS 'Spam Blacklisted:',
-  spamreport AS 'SpamAssassin Autolearn:',
-  sascore AS 'SpamAssassin Score:',
-  spamreport AS 'Spam Report:',
-  'Message Content Protection (MCP)' AS 'HEADER',
+  CASE WHEN isrblspam>0 THEN '$yes' ELSE '$no' END AS '" . __('listedrbl04') . "',
+  CASE WHEN spamwhitelisted>0 THEN '$yes' ELSE '$no' END AS '" . __('spamwl04') . "',
+  CASE WHEN spamblacklisted>0 THEN '$yes' ELSE '$no' END AS '" . __('spambl04') . "',
+  spamreport AS '" . __('saautolearn04') . "',
+  sascore AS '" . __('sascore04') . "',
+  spamreport AS '" . __('spamrep04') . "',
+  '" . __('hdrmcp04') . "' AS 'HEADER',
   CASE WHEN ismcp>0 THEN '$yes' ELSE '$no' END AS 'MCP:',
-  CASE WHEN ishighmcp>0 THEN '$yes' ELSE '$no' END AS 'High Scoring MCP:',
+  CASE WHEN ishighmcp>0 THEN '$yes' ELSE '$no' END AS '" . __('highscomcp04') . "',
   CASE WHEN issamcp>0 THEN '$yes' ELSE '$no' END AS 'SpamAssassin MCP:',
-  CASE WHEN mcpwhitelisted>0 THEN '$yes' ELSE '$no' END AS 'MCP Whitelisted:',
-  CASE WHEN mcpblacklisted>0 THEN '$yes' ELSE '$no' END AS 'MCP Blacklisted:',
-  mcpsascore AS 'MCP Score:',
-  mcpreport AS 'MCP Report:'
+  CASE WHEN mcpwhitelisted>0 THEN '$yes' ELSE '$no' END AS '" . __('mcpwl04') . "',
+  CASE WHEN mcpblacklisted>0 THEN '$yes' ELSE '$no' END AS '" . __('mcpbl04') . "',
+  mcpsascore AS '" . __('mcpscore04') . "',
+  mcpreport AS '" . __('mcprep04') . "'
  FROM
   maillog
  WHERE
@@ -103,40 +111,45 @@ if (mysql_num_rows($result) == 0) {
     audit_log('Viewed message detail (id=' . $url_id . ')');
 }
 
+// Check if MCP is enabled
+$is_MCP_enabled = get_conf_truefalse('mcpchecks');
+
 echo '<table class="maildetail" border="0" cellspacing="1" cellpadding="1" width="100%">' . "\n";
 while ($row = mysql_fetch_array($result, MYSQL_BOTH)) {
-    $listurl = "lists.php?host=" . $row['Received from:'] . "&amp;from=" . $row['From:'] . "&amp;to=" . $row['To:'];
+    $listurl = "lists.php?host=" . $row[__('receivedfrom04')] . "&amp;from=" . $row[__('from04')] . "&amp;to=" . $row[__('to04')];
     for ($f = 0; $f < mysql_num_fields($result); $f++) {
         $fieldn = mysql_field_name($result, $f);
-        if ($fieldn == "Received from:") {
+        if ($fieldn == __('receivedfrom04')) {
             $output = "<table class=\"sa_rules_report\" width=\"100%\" cellspacing=0 cellpadding=0><tr><td>" . $row[$f] . "</td>";
             if (LISTS) {
-                $output .= "<td align=\"right\">[<a href=\"$listurl&amp;type=h&amp;list=w\">Add to Whitelist</a>&nbsp|&nbsp;<a href=\"$listurl&amp;type=h&amp;list=b\">Add to Blacklist</a>]</td>";
+                $output .= "<td align=\"right\">[<a href=\"$listurl&amp;type=h&amp;list=w\">" . __('addwl04') . "</a>&nbsp;|&nbsp;<a href=\"$listurl&amp;type=h&amp;list=b\">" . __('addbl04') . "</a>]</td>";
             }
             $output .= "</tr></table>\n";
             $row[$f] = $output;
         }
-        if ($fieldn == "Received Via:") {
+        if ($fieldn == __('receivedvia04')) {
             // Start Table
             $output = '<table width="100%" class="sa_rules_report">' . "\n";
             $output .= ' <tr>' . "\n";
-            $output .= ' <th>IP Address</th>' . "\n";
+            $output .= ' <th>' . __('ipaddress04') . '</th>' . "\n";
             $output .= ' <th>Hostname</th>' . "\n";
-            $output .= ' <th>Country</th>' . "\n";
+            $output .= ' <th>' . __('country04') . '</th>' . "\n";
             $output .= ' <th>RBL</th>' . "\n";
             $output .= ' <th>Spam</th>' . "\n";
             $output .= ' <th>Virus</th>' . "\n";
-            $output .= ' <th>All</th>' . "\n";
+            $output .= ' <th>' . __('all04') . '</th>' . "\n";
             $output .= ' </tr>' . "\n";
             if (is_array(($relays = get_mail_relays($row[$f])))) {
                 foreach ($relays as $relay) {
                     $output .= ' <tr>' . "\n";
                     $output .= ' <td>' . $relay . '</td>' . "\n";
+                    // check if ipv4 has a port specified (e.g. 10.0.0.10:1025), strip it if found
+                    $relay = stripPortFromIp($relay);
                     // Reverse lookup on address. Possibly need to remove it.
                     if (($host = gethostbyaddr($relay)) <> $relay) {
-                        $output .= " <TD>$host</TD>\n";
+                        $output .= " <td>$host</td>\n";
                     } else {
-                        $output .= " <TD>(Reverse Lookup Failed)</TD>\n";
+                        $output .= " <td>(Reverse Lookup Failed)</td>\n";
                     }
                     // Do GeoIP lookup on address
                     if ($geoip_country = return_geoip_country($relay)) {
@@ -161,49 +174,48 @@ while ($row = mysql_fetch_array($result, MYSQL_BOTH)) {
                 $row[$f] = "127.0.0.1"; // Must be local mailer (Exim)
             }
         }
-        if ($fieldn == "Report:") {
+        if ($fieldn == __('report04')) {
             $row[$f] = nl2br(str_replace(",", "<br>", htmlentities($row[$f])));
             $row[$f] = preg_replace("/<br \/>/", "<br>", $row[$f]);
         }
-        if ($fieldn == "From:") {
+        if ($fieldn == __('from04')) {
             $row[$f] = htmlentities($row[$f]);
             $output = '<table class="sa_rules_report" cellspacing="0"><tr><td>' . $row[$f] . '</td>' . "\n";
             if (LISTS) {
-                $output .= '<td align="right">[<a href="' . $listurl . '&amp;type=f&amp;list=w">Add to Whitelist</a>&nbsp|&nbsp;<a href="' . $listurl . '&amp;type=f&amp;list=b">Add to Blacklist</a>]</td>' . "\n";
+                $output .= '<td align="right">[<a href="' . $listurl . '&amp;type=f&amp;list=w">' . __('addwl04') . '</a>&nbsp;|&nbsp;<a href="' . $listurl . '&amp;type=f&amp;list=b">' . __('addbl04') . '</a>]</td>' . "\n";
             }
             $output .= '</tr></table>' . "\n";
             $row[$f] = $output;
         }
-        if ($fieldn == "To:" || $fieldn == "Subject:") {
+        if ($fieldn == __('to04')) {
             $row[$f] = htmlspecialchars($row[$f]);
-        }
-        if ($fieldn == "To:") {
             $row[$f] = str_replace(",", "<br>", $row[$f]);
         }
-        if ($fieldn == "Subject:") {
-            $row[$f] = decode_header($row[$f]);
-            if (function_exists('mb_check_encoding')) {
-                if (!mb_check_encoding($row[$f], 'UTF-8')) {
-                    $row[$f] = mb_convert_encoding($row[$f], 'UTF-8');
-                }
-            } else {
-                $row[$f] = utf8_encode($row[$f]);
-            }
-            $row[$f] = htmlspecialchars($row[$f]);
+        if ($fieldn == __('subject04')) {
+            $row[$f] = htmlspecialchars(getUTF8String(decode_header($row[$f])));
         }
-        if ($fieldn == "Spam Report:") {
+        if ($fieldn == __('spamrep04')) {
             $row[$f] = format_spam_report($row[$f]);
         }
-        if ($fieldn == "Size:") {
+        if ($fieldn == __('size04')) {
             $row[$f] = format_mail_size($row[$f]);
         }
-        if ($fieldn == "Message Headers:") {
-            $row[$f] = nl2br(
-                str_replace(array("\\n", "\t"), array("<br>", "&nbsp; &nbsp; &nbsp;"), htmlentities($row[$f]))
-            );
+        if ($fieldn == __('msgheaders04')) {
+            if (version_compare(phpversion(), "5.4", ">=")) {
+                $row[$f] = nl2br(
+                    str_replace(array("\n", "\t"), array("<br>", "&nbsp; &nbsp; &nbsp;"), htmlentities($row[$f], ENT_COMPAT | ENT_HTML401 | ENT_SUBSTITUTE))
+                );
+            } else {
+                $row[$f] = nl2br(
+                    str_replace(array("\n", "\t"), array("<br>", "&nbsp; &nbsp; &nbsp;"), htmlentities($row[$f]))
+                );
+            }
+            if (function_exists('iconv_mime_decode')) {
+                $row[$f] = iconv_mime_decode(utf8_decode($row[$f]), 2, 'UTF-8');
+            }
             $row[$f] = preg_replace("/<br \/>/", "<br>", $row[$f]);
         }
-        if ($fieldn == "SpamAssassin Autolearn:") {
+        if ($fieldn == __('saautolearn04')) {
             if (($autolearn = sa_autolearn($row[$f])) !== false) {
                 $row[$f] = $yes . " ($autolearn)";
             } else {
@@ -222,16 +234,28 @@ while ($row = mysql_fetch_array($result, MYSQL_BOTH)) {
                     );
             }
         }
-        if ($fieldn == "High Scoring Spam:" && $row[$f] == $yes) {
+        if ($fieldn == __('hscospam04') && $row[$f] == $yes) {
             // Display actions if high-scoring
-            $row[$f] = $row[$f] . "&nbsp;&nbsp;Action(s): " . str_replace(
+            $row[$f] = $row[$f] . "&nbsp;&nbsp;" . __('actions04') . ": " . str_replace(
                     " ",
                     ", ",
                     get_conf_var("HighScoringSpamActions")
                 );
         }
-        if ($fieldn == "MCP Report:") {
-            $row[$f] = format_mcp_report($row[$f]);
+
+        if ($is_MCP_enabled=== true) {
+            if ($fieldn == __('mcprep04')) {
+                $row[$f] = format_mcp_report($row[$f]);
+            }
+        }
+
+        if ($is_MCP_enabled !== true) {
+            if (mysql_field_name($result, $f) == 'HEADER' && strpos($row[$f], 'MCP') !== false) {
+                continue;
+            }
+            if (strpos(mysql_field_name($result, $f), 'MCP') !== false) {
+                continue;
+            }
         }
         // Handle dummy header fields
         if (mysql_field_name($result, $f) == 'HEADER') {
@@ -252,7 +276,7 @@ while ($row = mysql_fetch_array($result, MYSQL_BOTH)) {
 
 // Display the relay information only if there are matching
 // rows in the relay table (maillog.id = relay.msg_id)...
-$sqlcheck = "Show tables like 'mtalog_ids'";
+$sqlcheck = "SHOW TABLES LIKE 'mtalog_ids'";
 $tablecheck = dbquery($sqlcheck);
 if ($mta == 'postfix' && mysql_num_rows($tablecheck) > 0) { //version for postfix
     $sql1 = "
@@ -324,15 +348,16 @@ $quarantined = quarantine_list_items($url_id, RPC_ONLY);
 if ((is_array($quarantined)) && (count($quarantined) > 0)) {
     echo "<br>\n";
 
-    if ($_GET['submit'] == "Submit") {
+    if (isset($_GET['submit']) && ($_GET['submit'] == __('submit04'))) {
         debug("submit branch taken");
         // Reset error status
         $error = 0;
+        $status = array();
         // Release
         if (isset($_GET['release'])) {
             // Send to the original recipient(s) or to an alternate address
-            if (($_GET['alt_recpt_yn'] == "y")) {
-                $to = $_GET['alt_recpt'];
+            if (isset($_GET['alt_recpt_yn']) && ($_GET['alt_recpt_yn'] == "y")) {
+                $to = sanitizeInput($_GET['alt_recpt']);
                 $to = htmlentities($to);
             } else {
                 $to = $quarantined[0]['to'];
@@ -349,11 +374,11 @@ if ((is_array($quarantined)) && (count($quarantined) > 0)) {
         }
         echo '<table border="0" cellpadding="1" cellspacing="1" width="100%" class="maildetail">' . "\n";
         echo ' <tr>' . "\n";
-        echo '  <th colspan="2">Quarantine Command Results</th>' . "\n";
+        echo '  <th colspan="2">' . __('quarcmdres04') . '</th>' . "\n";
         echo ' </tr>' . "\n";
-        if (isset($status)) {
+        if (!empty($status)) {
             echo '  <tr>' . "\n";
-            echo '  <td class="heading" width="150" align="right" valign="top">Result Messages:</td>' . "\n";
+            echo '  <td class="heading" width="150" align="right" valign="top">' . __('resultmsg04') . ':</td>' . "\n";
             echo '  <td class="detail">' . "\n";
             foreach ($status as $key => $val) {
                 echo "  $val<br>\n";
@@ -377,20 +402,21 @@ if ((is_array($quarantined)) && (count($quarantined) > 0)) {
         echo ' </tr>' . "\n";
         echo '</table>' . "\n";
     } else {
-        echo '<form action="' . $_SERVER['PHP_SELF'] . '" name="quarantine">' . "\n";
+        echo '<form action="detail.php" name="quarantine">' . "\n";
         echo '<table cellspacing="1" width="100%" class="mail">' . "\n";
         echo ' <tr>' . "\n";
-        echo '  <th colspan="7">Quarantine</th>' . "\n";
+        echo '  <th colspan="7">' . __('quarantine04') . '</th>' . "\n";
         echo ' </tr>' . "\n";
         echo ' <tr>' . "\n";
-        echo '  <th>Release</th>' . "\n";
-        echo '  <th>Delete</th>' . "\n";
-        echo '  <th>SA Learn</th>' . "\n";
-        echo '  <th>File</th>' . "\n";
-        echo '  <th>Type</th>' . "\n";
-        echo '  <th>Path</th>' . "\n";
-        echo '  <th>Dangerous?</th>' . "\n";
+        echo '  <th>' . __('release04') . '</th>' . "\n";
+        echo '  <th>' . __('delete04') . '</th>' . "\n";
+        echo '  <th>' . __('salearn04') . '</th>' . "\n";
+        echo '  <th>' . __('file04') . '</th>' . "\n";
+        echo '  <th>' . __('type04') . '</th>' . "\n";
+        echo '  <th>' . __('path04') . '</th>' . "\n";
+        echo '  <th>' . __('dang04') . '?</th>' . "\n";
         echo ' </tr>' . "\n";
+        $is_dangerous = 0;
         foreach ($quarantined as $item) {
             echo " <tr>\n";
             // Don't allow message to be released if it is marked as 'dangerous'
@@ -409,25 +435,23 @@ if ((is_array($quarantined)) && (count($quarantined) > 0)) {
             ) {
                 echo '   <td align="center"><input type="checkbox" name="learn[]" value="' . $item['id'] . '"><select name="learn_type"><option value="ham">As Ham</option><option value="spam">As Spam</option><option value="forget">Forget</option><option value="report">As Spam+Report</option><option value="revoke">As Ham+Revoke</option></select></td>' . "\n";
             } else {
-                echo '   <td>&nbsp&nbsp</td>' . "\n";
+                echo '   <td>&nbsp;&nbsp;</td>' . "\n";
             }
             echo '  <td>' . $item['file'] . '</td>' . "\n";
             echo '  <td>' . $item['type'] . '</td>' . "\n";
             // If the file is in message/rfc822 format and isn't dangerous - create a link to allow it to be viewed
-            if (($item['dangerous'] == "N" || $_SESSION['user_type'] == 'A') && preg_match(
-                    '!message/rfc822!',
-                    $item['type']
-                )
+            if (($item['dangerous'] == "N" || $_SESSION['user_type'] == 'A') &&
+                preg_match('!message/rfc822!', $item['type'])
             ) {
-                echo '  <td><a href="viewmail.php?id=' . $item['msgid'] . '&amp;filename=' . substr(
-                        $item['path'],
-                        strlen($quarantinedir) + 1
-                    ) . '">' . substr($item['path'], strlen($quarantinedir) + 1) . '</a></td>' . "\n";
+                echo '  <td><a href="viewmail.php?id=' . $item['msgid'] . '">' .
+                    substr($item['path'], strlen($quarantinedir) + 1) .
+                    '</a></td>' . "\n";
             } else {
                 echo "  <td>" . substr($item['path'], strlen($quarantinedir) + 1) . "</td>\n";
             }
             if ($item['dangerous'] == "Y" && $_SESSION['user_type'] != 'A') {
                 $dangerous = $yes;
+                $is_dangerous++;
             } else {
                 $dangerous = $no;
             }
@@ -435,20 +459,19 @@ if ((is_array($quarantined)) && (count($quarantined) > 0)) {
             echo ' </tr>' . "\n";
         }
         echo ' <tr>' . "\n";
-        if ($item['dangerous'] == "Y" && $_SESSION['user_type'] != 'A') {
-            echo '  <td colspan="6">&nbsp</td>' . "\n";
+        if ($is_dangerous > 0 && $_SESSION['user_type'] != 'A') {
+            echo '  <td colspan="6">&nbsp;</td>' . "\n";
         } else {
-            echo '  <td colspan="6"><input type="checkbox" name="alt_recpt_yn" value="y">&nbsp;Alternate Recipient(s):&nbsp;<input type="TEXT" name="alt_recpt" size="100"></td>' . "\n";
+            echo '  <td colspan="6"><input type="checkbox" name="alt_recpt_yn" value="y">&nbsp;' . __('altrecip04') . ':&nbsp;<input type="TEXT" name="alt_recpt" size="100"></td>' . "\n";
         }
         echo '  <td align="right">' . "\n";
         echo '<input type="HIDDEN" name="id" value="' . $quarantined[0]['msgid'] . '">' . "\n";
-        echo '<input type="SUBMIT" name="submit" value="Submit">' . "\n";
+        echo '<input type="SUBMIT" name="submit" value="' . __('submit04') . '">' . "\n";
         echo '  </td></tr>' . "\n";
         echo '</table>' . "\n";
         echo '</form>' . "\n";
     }
 } else {
-
     // Error??
     if (!is_array($quarantined)) {
         echo '<br>' . $quarantined . '';

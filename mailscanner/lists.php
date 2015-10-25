@@ -1,61 +1,70 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
-
-require_once("./functions.php");
+require_once(__DIR__ . '/functions.php');
 
 session_start();
-require('./login.function.php');
+require(__DIR__ . '/login.function.php');
 
 html_start("Whitelist/Blacklist", 0, false, false);
 
-$url_type = (isset($_GET['type']) ? $_GET['type'] : '');
+$url_type = (isset($_GET['type']) ? sanitizeInput($_GET['type']) : '');
 $url_type = htmlentities($url_type);
 $url_type = safe_value($url_type);
 
-$url_to = (isset($_GET['to']) ? $_GET['to'] : '');
+$url_to = (isset($_GET['to']) ? sanitizeInput($_GET['to']) : '');
 $url_to = htmlentities($url_to);
 $url_to = safe_value($url_to);
 
-$url_host = (isset($_GET['host']) ? $_GET['host'] : '');
+$url_host = (isset($_GET['host']) ? sanitizeInput($_GET['host']) : '');
 $url_host = htmlentities($url_host);
 $url_host = safe_value($url_host);
 
-$url_from = (isset($_GET['from']) ? $_GET['from'] : '');
+$url_from = (isset($_GET['from']) ? sanitizeInput($_GET['from']) : '');
 $url_from = htmlentities($url_from);
 $url_from = safe_value($url_from);
 
-$url_submit = (isset($_GET['submit']) ? $_GET['submit'] : '');
+$url_submit = (isset($_GET['submit']) ? sanitizeInput($_GET['submit']) : '');
 $url_submit = htmlentities($url_submit);
 $url_submit = safe_value($url_submit);
 
-$url_list = (isset($_GET['list']) ? $_GET['list'] : '');
+$url_list = (isset($_GET['list']) ? sanitizeInput($_GET['list']) : '');
 $url_list = htmlentities($url_list);
 $url_list = safe_value($url_list);
 
-$url_domain = (isset($_GET['domain']) ? $_GET['domain'] : '');
+$url_domain = (isset($_GET['domain']) ? sanitizeInput($_GET['domain']) : '');
 $url_domain = htmlentities($url_domain);
 $url_domain = safe_value($url_domain);
 
-$url_id = (isset($_GET['id']) ? $_GET['id'] : '');
+$url_id = (isset($_GET['id']) ? sanitizeInput($_GET['id']) : '');
 $url_id = htmlentities($url_id);
 $url_id = safe_value($url_id);
 
@@ -65,6 +74,8 @@ $to_domain = '';
 if (preg_match('/(\S+)@(\S+)/', $url_to, $split)) {
     $touser = $split[1];
     $to_domain = $split[2];
+} else {
+    $to_domain = $url_to;
 }
 
 // Type
@@ -83,6 +94,7 @@ $myusername = $_SESSION['myusername'];
 // Validate input against the user type
 $to_user_filter = array();
 $to_domain_filter = array();
+$to_address = '';
 switch ($_SESSION['user_type']) {
     case 'U': // User
         $sql1 = "SELECT filter FROM user_filters WHERE username='$myusername' AND active='Y'";
@@ -134,9 +146,9 @@ switch ($_SESSION['user_type']) {
         $to_domain_filter = array_unique($to_domain_filter);
         break;
     case 'A': // Administrator
+        $to_address = 'default';
         break;
 }
-$to_address = '';
 switch (true) {
     case(!empty($url_to)):
         $to_address = $url_to;
@@ -150,7 +162,7 @@ switch (true) {
 }
 
 // Submitted
-if ($url_submit == 'Add') {
+if ($url_submit == __('add07')) {
     // Check input is valid
     if (empty($url_list)) {
         $errors[] = "You must select a list to create the entry.";
@@ -215,14 +227,15 @@ if ($url_submit == 'Delete') {
 function build_table($sql, $list)
 {
     global $bg_colors;
+
     $sth = dbquery($sql);
     $rows = mysql_num_rows($sth);
     if ($rows > 0) {
         echo '<table class="blackwhitelist">' . "\n";
         echo ' <tr>' . "\n";
-        echo '  <th>From</th>' . "\n";
-        echo '  <th>To</th>' . "\n";
-        echo '  <th>Action</th>' . "\n";
+        echo '  <th>' . __('from07') . '</th>' . "\n";
+        echo '  <th>' . __('to07') . '</th>' . "\n";
+        echo '  <th>' . __('action07') . '</th>' . "\n";
         echo ' </tr>' . "\n";
         $i = 1;
         while ($row = mysql_fetch_row($sth)) {
@@ -231,7 +244,7 @@ function build_table($sql, $list)
             echo ' <tr>' . "\n";
             echo '  <td style="background-color: ' . $bgcolor . '; ">' . $row[1] . '</td>' . "\n";
             echo '  <td style="background-color: ' . $bgcolor . '; ">' . $row[2] . '</td>' . "\n";
-            echo '  <td style="background-color: ' . $bgcolor . '; "><a href="' . $_SERVER['PHP_SELF'] . '?submit=Delete&amp;id=' . $row[0] . '&amp;to=' . $row[2] . '&amp;list=' . $list . '">Delete</a><td>' . "\n";
+            echo '  <td style="background-color: ' . $bgcolor . '; "><a href="lists.php?submit=Delete&amp;id=' . $row[0] . '&amp;to=' . $row[2] . '&amp;list=' . $list . '">' . __('delete07') . '</a><td>' . "\n";
             echo ' </tr>' . "\n";
         }
         echo '</table>' . "\n";
@@ -241,17 +254,17 @@ function build_table($sql, $list)
 }
 
 echo '
-<form action="' . $_SERVER['PHP_SELF'] . '">
+<form action="lists.php">
 <table cellspacing="1" class="mail">
  <tr>
-  <th colspan=2>Add to Whitelist/Blacklist</th>
+  <th colspan=2>' . __('addwlbl07') . '</th>
  </tr>
  <tr>
-  <td class="heading">From:</td>
+  <td class="heading">' . __('from07') . ':</td>
   <td><input type="text" name="from" size=50 value="' . $from . '"></td>
  </tr>
  <tr>
-  <td class="heading">To:</td>';
+  <td class="heading">' . __('to07') . ':</td>';
 
 switch ($_SESSION['user_type']) {
     case 'A':
@@ -291,7 +304,7 @@ switch ($_SESSION['user_type']) {
 echo '
  </tr>
  <tr>
-  <td class="heading">List:</td>
+  <td class="heading">' . __('list07') . ':</td>
   <td>';
 
 $w = '';
@@ -304,14 +317,14 @@ switch ($url_list) {
         $b = 'CHECKED';
         break;
 }
-echo '   <input type="radio" value="w" name="list" ' . $w . '>Whitelist &nbsp;&nbsp;' . "\n";
-echo '   <input type="radio" value="b" name="list" ' . $b . '>Blacklist' . "\n";
+echo '   <input type="radio" value="w" name="list" ' . $w . '>'. __('wl07') . '&nbsp;&nbsp;' . "\n";
+echo '   <input type="radio" value="b" name="list" ' . $b . '>' . __('bl07') . '' . "\n";
 
 echo '  </td>
  </tr>
  <tr>
-  <td class="heading">Action:</td>
-  <td><input type="reset" value="Reset">&nbsp;&nbsp;<input type="submit" value="Add" name="submit"></td>
+  <td class="heading">' . __('action07') . ':</td>
+  <td><input type="reset" value="' . __('reset07') . '">&nbsp;&nbsp;<input type="submit" value="' . __('add07') . '" name="submit"></td>
  </tr>';
 if (isset($errors)) {
     echo '<tr>
@@ -324,8 +337,8 @@ echo '</table>
    <br>
 <table cellspacing="1" width="100%" class="mail">
 <tr>
-  <th class="whitelist">Whitelist</th>
-  <th class="blacklist">Blacklist</th>
+  <th class="whitelist">' . __('wl07') . '</th>
+  <th class="blacklist">' . __('bl07') . '</th>
 </tr>
 <tr>
   <td class="blackwhitelist">

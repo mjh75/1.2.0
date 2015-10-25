@@ -1,5 +1,34 @@
 <?php
-// $Id: msre_edit.php,v 1.9 2005/06/14 20:29:21 jofcore Exp $
+
+/*
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
 /*
 msre = MailScanner Ruleset Editor
 (c) 2004 Kevin Hanser
@@ -20,11 +49,11 @@ Released under the GNU GPL: http://www.gnu.org/copyleft/gpl.html#TOC1
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 // Include of necessary functions
-require_once("./functions.php");
+require_once(__DIR__ . '/functions.php');
 
 // Authentication checking
 session_start();
-require('login.function.php');
+require(__DIR__ . '/login.function.php');
 
 // Check to see if the user is an administrator
 if ($_SESSION['user_type'] != 'A') {
@@ -33,7 +62,8 @@ if ($_SESSION['user_type'] != 'A') {
     audit_log('Non-admin user attempted to view MailScanner Rule Editor Page');
 } else {
     // add the header information such as the logo, search, menu, ....
-    $pageheader = "Edit MailScanner Ruleset " . $_GET["file"];
+    $short_filename = basename(sanitizeInput($_GET["file"]));
+    $pageheader = "Edit MailScanner Ruleset " . $short_filename;
     $filter = html_start($pageheader, 0, false, false);
 
     // ############################
@@ -50,7 +80,7 @@ if ($_SESSION['user_type'] != 'A') {
         "From:",
         "To:",
         "FromOrTo:",
-	"FromAndTo:",
+        "FromAndTo:",
         "Virus:"
     );
 
@@ -61,8 +91,11 @@ if ($_SESSION['user_type'] != 'A') {
     // ############
 
     // get the filename and put it into some easier to read variables
-    $short_filename = $_GET["file"];
     $full_filename = MSRE_RULESET_DIR . "/" . $short_filename;
+
+    if (!file_exists($full_filename)) {
+        die("File not found: " . $full_filename);
+    }
 
     // read the file into a variable, so that each function doesn't
     // need to do it themselves
@@ -140,10 +173,11 @@ function Show_Form($status_msg)
         if ($line == "") {
             $line = "#";
         }
-        if ((substr($line,0,1) != "#")
-            or preg_match("/^#DISABLED#/", $line) ) {
+        if ((substr($line, 0, 1) != "#")
+            or preg_match("/^#DISABLED#/", $line)
+        ) {
             // check for a description on the previous line
-	    if (substr($previous_line,0,1) == "#" ) {
+            if (substr($previous_line, 0, 1) == "#") {
                 $desc = $previous_line;
             } else {
                 $desc = "";
@@ -183,24 +217,24 @@ function Show_Form($status_msg)
         $rule_part = array();
         $rule_part["99action"] = array_pop($old_rule_part);
         // now I should be able to assign the other parts names as well
-		
-	// if fewer than 5 parts to rule, fill other parts with NULL
-	// too many don't matter, so push 4 NULLs anyway
+
+        // if fewer than 5 parts to rule, fill other parts with NULL
+        // too many don't matter, so push 4 NULLs anyway
         if (count($old_rule_part) < 5) {
-	    array_push($old_rule_part, NULL, NULL, NULL, NULL);
-	}
-	list (
+            array_push($old_rule_part, null, null, null, null);
+        }
+        list(
             $rule_part["0direction"],
             $rule_part["1target"],
             $rule_part["2and"],
             $rule_part["3and_direction"],
             $rule_part["4and_target"]
             ) = $old_rule_part;
-        
-	// clean out whitespace from the rule parts
-	foreach ($rule_part as &$a_part) {
-	    trim($a_part);
-	}
+
+        // clean out whitespace from the rule parts
+        foreach ($rule_part as &$a_part) {
+            trim($a_part);
+        }
         // I need to check
         // for "missing pieces" of the rule, that may
         // exist in the old_rule_part array in between
@@ -228,9 +262,9 @@ function Show_Form($status_msg)
         // now grab shit.
         while ($last_old_rule_part != $rule_part[$grab_to_field]) {
             //echo "lorp$rule_count: $last_old_rule_part<br>\n";
-            if ($last_old_rule_part != NULL) {
+            if ($last_old_rule_part != null) {
                 $rule_part["99action"] = $last_old_rule_part . " " . $rule_part["99action"];
-	    }
+            }
             $last_old_rule_part = array_pop($old_rule_part);
         }
 
@@ -340,23 +374,19 @@ function Show_Form($status_msg)
                         "<option value=\"\"></option>";
                     foreach ($CONF_ruleset_keyword as $current_kw) {
                         $select_html .= "<option value=\"$current_kw\"";
-			$match = strtolower(preg_replace("/#DISABLED#/", "", $value));
+                        $match = strtolower(preg_replace("/#DISABLED#/", "", $value));
                         $kw = "";
                         // Use MailScanner's direction-matching rules
                         if (preg_match("/and/", $match)) {
-			  $kw = "fromandto:";
-                        }
-                        elseif (preg_match("/from/", $match) and preg_match("/to/", $match)) {
-                          $kw = "fromorto:";
-                        }
-                        elseif (preg_match("/from/", $match)) {
-                          $kw = "from:";
-                        }
-                        elseif (preg_match("/to/", $match)) {
-                          $kw = "to:";
-                        }
-                        elseif (preg_match("/virus/", $match)) {
-                          $kw = "virus:";
+                            $kw = "fromandto:";
+                        } elseif (preg_match("/from/", $match) and preg_match("/to/", $match)) {
+                            $kw = "fromorto:";
+                        } elseif (preg_match("/from/", $match)) {
+                            $kw = "from:";
+                        } elseif (preg_match("/to/", $match)) {
+                            $kw = "to:";
+                        } elseif (preg_match("/virus/", $match)) {
+                            $kw = "virus:";
                         }
                         if (strtolower($current_kw) == $kw) {
                             $select_html .= " selected";
@@ -518,15 +548,16 @@ function Process_Form()
     $first_line = true;
     foreach (preg_split("/\n/", $file_contents) as $line) {
         if ($line == "" or (substr($line, 0, 1) == "#"
-                and !preg_match("/#DISABLED#/", $line)) ) {
-	    if (!$first_line) {
-	        $new_file[] = $previous_line . "\n";
+                and !preg_match("/#DISABLED#/", $line))
+        ) {
+            if (!$first_line) {
+                $new_file[] = $previous_line . "\n";
             }
         } else {
             break;
         }
         $previous_line = $line;
-	$first_line = false;
+        $first_line = false;
     }
 
     // to make my life easier (or possibly harder), I'm going
@@ -558,40 +589,40 @@ function Process_Form()
         // and action fields, so that it doesn't put it into the file
         if (isset($_POST[$description])) {
             $_POST[$description] = Fix_Quotes($_POST[$description]);
-	} else {
-	    $_POST[$description] = "";
-	}
+        } else {
+            $_POST[$description] = "";
+        }
         //echo "$description: " . $_POST[$description] . "<br>\n";
         // check for "default" rule
         if (isset($_POST[$target])) {
             $_POST[$target] = Fix_Quotes($_POST[$target]);
         } else {
-	    $_POST[$target] = "default";
+            $_POST[$target] = "default";
         }
-	// strip out any embedded blanks from Target
-	$_POST[$target] = str_replace(" ", "", $_POST[$target]);
+        // strip out any embedded blanks from Target
+        $_POST[$target] = str_replace(" ", "", $_POST[$target]);
 
         if (!isset($_POST[$and_direction])) {
-	    $_POST[$and_direction] = "";
-	}
-	if (isset($_POST[$and_target])) {
+            $_POST[$and_direction] = "";
+        }
+        if (isset($_POST[$and_target])) {
             $_POST[$and_target] = Fix_Quotes($_POST[$and_target]);
-	} else {
-	    $_POST[$and_target] = "";
-	}
+        } else {
+            $_POST[$and_target] = "";
+        }
         // strip out any embedded blanks from AndTarget
         $_POST[$and_target] = str_replace(" ", "", $_POST[$and_target]);
 
-	if (isset($_POST[$action])) {
+        if (isset($_POST[$action])) {
             $_POST[$action] = Fix_Quotes($_POST[$action]);
         } else {
-	    $_POST[$action] = "";
-	}
+            $_POST[$action] = "";
+        }
         // On no account allow invalid rule
-	// Target and Action must both have values
-	// delete rule if they don't
-	if ($_POST[$target] == "" or $_POST[$action] == "") {
-	    continue;
+        // Target and Action must both have values
+        // delete rule if they don't
+        if ($_POST[$target] == "" or $_POST[$action] == "") {
+            continue;
         }
         if (strtolower($_POST[$target]) == "default") {
             // Default 'direction' can only be "Virus:" or "FromOrTo:"
@@ -610,14 +641,13 @@ function Process_Form()
         // If so, we need to do something here..
         //echo "$rule_action: |" . $_POST[$rule_action] . "|<br>\n";
         if (isset($_POST[$rule_action])) {
-	    switch ($_POST[$rule_action]) {
+            switch ($_POST[$rule_action]) {
                 case "Delete":
                     // deletions are simple, just ignore this rule and
                     // go to the next one (and it won't get written to
                     // the new file)
                     //echo "rule$i: $rule_action says delete<br>\n";
                     continue 2;
-                    break;
                 case "Disable":
                     // to disable a rule, we simply add "#DISABLED" to the
                     // beginning of the direction field,
@@ -628,7 +658,7 @@ function Process_Form()
                     // enable is the opposite of disable..
                     $_POST[$direction] = preg_replace("/^#DISABLED#/", "", $_POST[$direction]);
                     break;
-		}
+            }
         }
 
         //echo "after case, rule $i<br>\n";
@@ -639,8 +669,8 @@ function Process_Form()
         // if any of the "and" parts are missing, clear the whole and part
         if ($_POST[$and] == "" or $_POST[$and_direction] == "" or $_POST[$and_target] == "") {
             $_POST[$and] = "";
-	    $_POST[$and_direction] = "";
-	    $_POST[$and_target] = "";
+            $_POST[$and_direction] = "";
+            $_POST[$and_target] = "";
         }
 
         if (isset($_POST[$direction])) {
@@ -672,8 +702,8 @@ function Process_Form()
     }
     // and add on the default rule if there is one.
     if ($default_action != "") {
-        $new_file[] = "#" . $default_desc . "\n";
-        $new_file[] = "$default_direction\tdefault\t\t\t$default_action\n";
+        $new_file[] = "#" . sanitizeInput($default_desc) . "\n";
+        $new_file[] = sanitizeInput($default_direction) . "\tdefault\t\t\t" . sanitizeInput($default_action) ."\n";
     }
 
     // ### ---> Debugging
@@ -690,8 +720,9 @@ function Process_Form()
     */
 
     // mmmkay, now we should be able to write the new file
-    $filename = MSRE_RULESET_DIR . "/" . $_GET["file"];
-    list ($bytes, $status_msg) = Write_File($filename, $new_file);
+    $getFile = basename(sanitizeInput($_GET["file"]));
+    $filename = MSRE_RULESET_DIR . "/" . $getFile;
+    list($bytes, $status_msg) = Write_File($filename, $new_file);
 
     // schedule a reload of mailscanner's stuff. We can't do an immediate
     // reload w/out giving the apache user rights to run the MailScanner
@@ -721,8 +752,6 @@ function Read_File($filename, $size)
 {
     // reads $filename up to $size bytes, and returns what it contains
     include("msre_function_global_vars.php");
-
-    $returnvalue = "";
 
     // read contents of file
     $fh = fopen($filename, "r");

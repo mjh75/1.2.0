@@ -1,27 +1,37 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
-
-require_once("./functions.php");
+require_once(__DIR__ . '/functions.php');
+require_once(__DIR__ . '/lib/password.php');
+require_once(__DIR__ . '/lib/hash_equals.php');
 
 session_start();
 
@@ -33,20 +43,22 @@ if (isset($_SERVER['PHP_AUTH_USER'])) {
     $myusername = $_POST['myusername'];
     $mypassword = $_POST['mypassword'];
 }
-
-if ((USE_LDAP == 1) && (($result = ldap_authenticate($myusername, $mypassword)) != null)) {
+$myusername = sanitizeInput($myusername);
+$mypassword = sanitizeInput($mypassword);
+if ((USE_LDAP === true) && (($result = ldap_authenticate($myusername, $mypassword)) !== null)) {
     $_SESSION['user_ldap'] = '1';
     $myusername = safe_value($result);
-    $sql = "SELECT * FROM users WHERE username='$myusername'";
 } else {
-    $myusername = safe_value($myusername);
-    if ($mypassword != "") {
+    if ($mypassword != '') {
+        $myusername = safe_value($myusername);
         $mypassword = safe_value($mypassword);
-        $encrypted_mypassword = md5($mypassword);
+    } else {
+        header("Location: login.php?error=emptypassword");
+        die();
     }
-    $sql = "SELECT * FROM users WHERE username='$myusername' and password='$encrypted_mypassword'";
 }
 
+$sql = "SELECT * FROM users WHERE username='$myusername'";
 $result = dbquery($sql);
 
 if (!$result) {
@@ -54,126 +66,101 @@ if (!$result) {
     $message .= 'Whole query: ' . $sql;
     die($message);
 }
-if (mysql_num_rows($result) > 0) {
+
+// mysql_num_row is counting table row
+$usercount = mysql_num_rows($result);
+if ($usercount == 0) {
+    //no user found, redirect to login
+    dbclose();
+    header("Location: login.php?error=baduser");
+} else {
+    if (USE_LDAP === false) {
+        $passwordInDb = mysql_result($result, 0, 'password');
+        if (!password_verify($mypassword, $passwordInDb)) {
+            if (!hash_equals(md5($mypassword), $passwordInDb)) {
+                header("Location: login.php?error=baduser");
+                die();
+            } else {
+                $newPasswordHash = password_hash($mypassword, PASSWORD_DEFAULT);
+                updateUserPasswordHash($myusername, $newPasswordHash);
+            }
+        } else {
+            // upgraded password is valid, continue as normal
+            if (password_needs_rehash($passwordInDb, PASSWORD_DEFAULT)) {
+                $newPasswordHash = password_hash($mypassword, PASSWORD_DEFAULT);
+                updateUserPasswordHash($myusername, $newPasswordHash);
+            }
+        }
+    }
+
     $fullname = mysql_result($result, 0, 'fullname');
     $usertype = mysql_result($result, 0, 'type');
-}
-$sql1 = "SELECT filter FROM user_filters WHERE username='$myusername' AND active='Y'";
-$result1 = dbquery($sql1);
 
-if (!$result1) {
-    $message = 'Invalid query: ' . mysql_error() . "\n";
-    $message .= 'Whole query: ' . $sql1;
-    die($message);
-}
+    $sql_userfilter = "SELECT filter FROM user_filters WHERE username='$myusername' AND active='Y'";
+    $result_userfilter = dbquery($sql_userfilter);
 
-$filter[] = $myusername;
-while ($row = mysql_fetch_array($result1)) {
-    $filter[] = $row['filter'];
-}
+    if (!$result_userfilter) {
+        $message = 'Invalid query: ' . mysql_error() . "\n";
+        $message .= 'Whole query: ' . $sql_userfilter;
+        die($message);
+    }
 
-$global_filter = address_filter_sql($filter, $usertype);
+    $filter[] = $myusername;
+    while ($row = mysql_fetch_array($result_userfilter)) {
+        $filter[] = $row['filter'];
+    }
 
-switch ($usertype) {
+    $global_filter = address_filter_sql($filter, $usertype);
 
-    case "A":
-        $global_list = "1=1";
-        break;
-    case "D":
-        if (strpos($myusername, '@')) {
-            $ar = explode("@", $myusername);
-            $domainname = $ar[1];
-            if ((defined('FILTER_TO_ONLY') & FILTER_TO_ONLY)) {
-                $global_filter = $global_filter . " OR to_domain='$domainname'";
+    switch ($usertype) {
+        case "A":
+            $global_list = "1=1";
+            break;
+        case "D":
+            if (strpos($myusername, '@')) {
+                $ar = explode("@", $myusername);
+                $domainname = $ar[1];
+                if ((defined('FILTER_TO_ONLY') && FILTER_TO_ONLY)) {
+                    $global_filter = $global_filter . " OR to_domain='$domainname'";
+                } else {
+                    $global_filter = $global_filter . " OR to_domain='$domainname' OR from_domain='$domainname'";
+                }
+                $global_list = "to_domain='$domainname'";
             } else {
-                $global_filter = $global_filter . " OR to_domain='$domainname' OR from_domain='$domainname'";
+                $global_list = "to_address='$myusername'";
+                foreach ($filter as $to_address) {
+                    $global_list .= " OR to_address='$to_address'";
+                }
             }
-            $global_list = "to_domain='$domainname'";
-        } else {
+            break;
+        case "U":
             $global_list = "to_address='$myusername'";
             foreach ($filter as $to_address) {
                 $global_list .= " OR to_address='$to_address'";
             }
+            break;
+    }
+
+    // If result matched $myusername and $mypassword, table row must be 1 row
+    if ($usercount == 1) {
+        // Register $myusername, $mypassword and redirect to file "login_success.php"
+        $_SESSION['myusername'] = $myusername;
+        $_SESSION['fullname'] = $fullname;
+        $_SESSION['user_type'] = (isset($usertype) ? $usertype : '');
+        $_SESSION['domain'] = (isset($domainname) ? $domainname : '');
+        $_SESSION['global_filter'] = '(' . $global_filter . ')';
+        $_SESSION['global_list'] = (isset($global_list) ? $global_list : '');
+        $_SESSION['global_array'] = $filter;
+        $redirect_url = 'index.php';
+        if (isset($_SESSION['REQUEST_URI'])) {
+            $redirect_url = sanitizeInput($_SESSION['REQUEST_URI']);
+            unset($_SESSION['REQUEST_URI']);
         }
-        break;
-    case "U":
-        $global_list = "to_address='$myusername'";
-        foreach ($filter as $to_address) {
-            $global_list .= " OR to_address='$to_address'";
-        }
-        break;
+        header('Location: ' . $redirect_url);
+    } else {
+        header('Location: login.php?error=baduser');
+    }
+
+    // close any DB connections
+    dbclose();
 }
-
-$global_filter = '(' . $global_filter . ')';
-
-// Mysql_num_row is counting table row
-$count = mysql_num_rows($result);
-
-// If result matched $myusername and $mypassword, table row must be 1 row
-
-if ($count == 1) {
-    // Register $myusername, $mypassword and redirect to file "login_success.php"
-    $_SESSION['myusername'] = $myusername;
-    $_SESSION['fullname'] = $fullname;
-    $_SESSION['user_type'] = $usertype;
-    $_SESSION['domain'] = $domainname;
-    $_SESSION['global_filter'] = $global_filter;
-    $_SESSION['global_list'] = $global_list;
-    $_SESSION['global_array'] = $filter;
-    header("Location: index.php");
-} else {
-
-    echo '<html>';
-    echo '<head>';
-    echo '<link rel="shortcut icon" href="images/favicon.png" >' . "\n";
-    echo '<title>MailWatch Login Page</title>';
-    echo '</head>';
-    echo '<body>';
-    echo '<table width="300" border="0" align="center" cellpadding="0" cellspacing="1" bgcolor="#CCCCCC">';
-    echo '<TR>';
-
-    echo '<td align="center"><img src="images/mailwatch-logo.png"></td>';
-    echo '</tr>';
-
-    echo '<tr>';
-
-    echo '<form name="form1" method="post" action="checklogin.php">';
-    echo '<td>';
-    echo '<table width="100%" border="0" cellpadding="3" cellspacing="1" bgcolor="#FFFFFF">';
-
-    echo '<tr>';
-    echo '    <td colspan="3"><strong>MailWatch Login</strong></td>';
-    echo '</tr>';
-
-    echo '<tr>';
-    echo '    <td colspan="3"> Bad username or Password</td>';
-    echo '</tr>';
-
-    echo '<tr>';
-    echo '    <td width="78">Username</td>';
-    echo '    <td width="6">:</td>';
-    echo '    <td width="294"><input name="myusername" type="text" id="myusername"></td>';
-    echo '</tr>';
-
-    echo '<tr>';
-    echo '    <td>Password</td>';
-    echo '    <td>:</td>';
-    echo '    <td><input name="mypassword" type="password" id="mypassword"></td>';
-    echo '</tr>';
-
-    echo '<tr>';
-    echo '    <td>&nbsp;</td>';
-    echo '    <td>&nbsp;</td>';
-    echo '    <td><input type="submit" name="Submit" value="Login"> <input type="reset" value="Reset">  <INPUT TYPE="button" VALUE="Back" onClick="history.go(-1);return true;"></td>';
-    echo '</tr>
-</table>
-</td>
-</form>
-</tr>
-</table>
-</body>
-</html>';
-}
-
-// close any DB connections
-dbclose();

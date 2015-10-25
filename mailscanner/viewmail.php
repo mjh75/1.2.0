@@ -1,33 +1,42 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
-
-require_once('./functions.php');
-require_once('Mail/mimeDecode.php');
+require_once(__DIR__ . '/functions.php');
+require_once(__DIR__ . '/lib/pear/Mail/mimeDecode.php');
 ini_set("memory_limit", MEMORY_LIMIT);
 
 session_start();
-require('login.function.php');
+require(__DIR__ . '/login.function.php');
 
-html_start("Message Viewer", 0, false, false);
+html_start(__('msgviewer06'), 0, false, false);
 ?>
     <SCRIPT type="application/javascript">
         <!--
@@ -42,23 +51,25 @@ dbconn();
 if (!isset($_GET['id'])) {
     die("No input Message ID");
 } else {
-    $sql = "SELECT * FROM maillog WHERE id='" . mysql_real_escape_string($_GET['id']) . "' AND " . $_SESSION["global_filter"] . "";
-    $row = @mysql_fetch_object(dbquery($sql));
+    $message_id = sanitizeInput($_GET['id']);
+    $sql = "SELECT * FROM maillog WHERE id='" . mysql_real_escape_string($message_id) . "' AND " . $_SESSION["global_filter"];
+    $message = @mysql_fetch_object(dbquery($sql));
     // See if message is local
-    if (empty($row)) {
-        die("Message '" . $_GET['id'] . "' not found\n");
+    if (empty($message)) {
+        die("Message '" . $message_id . "' not found\n");
     } else {
-        audit_log('Quarantined message (' . $_GET['id'] . ') body viewed');
+        audit_log('Quarantined message (' . $message_id . ') body viewed');
     }
-    if (!is_local($row->hostname) || RPC_ONLY) {
+    $using_rpc = false;
+    if (!is_local($message->hostname) || RPC_ONLY) {
         // Host is remote - use XML-RPC
         $using_rpc = true;
         //$client = new xmlrpc_client(constant('RPC_RELATIVE_PATH').'/rpcserver.php',$row->hostname,80);
-        $input = new xmlrpcval($_GET['id']);
+        $input = new xmlrpcval($message_id);
         $parameters = array($input);
         $msg = new xmlrpcmsg('return_quarantined_file', $parameters);
         //$rsp = $client->send($msg);
-        $rsp = xmlrpc_wrapper($row->hostname, $msg);
+        $rsp = xmlrpc_wrapper($message->hostname, $msg);
         if ($rsp->faultcode() == 0) {
             $response = php_xmlrpc_decode($rsp->value());
         } else {
@@ -66,36 +77,29 @@ if (!isset($_GET['id'])) {
         }
         $file = base64_decode($response);
     } else {
-        // If filename input not present - work out path
-        $date = @mysql_result(dbquery("SELECT DATE_FORMAT(date,'%Y%m%d') FROM maillog where id='" . mysql_real_escape_string($_GET['id']) . "'"), 0);
-        $qdir = get_conf_var('QuarantineDir');
+        //build filename path
+        $date = DateTime::createFromFormat('Y-m-d', $message->date)->format('Ymd');
+        $quarantine_dir = get_conf_var('QuarantineDir');
+        $filename = '';
         switch (true) {
-            case (file_exists($qdir . '/' . $date . '/nonspam/' . $_GET['id'])):
-                $_GET['filename'] = $date . '/nonspam/' . $_GET['id'];
+            case (file_exists($quarantine_dir . '/' . $date . '/nonspam/' . $message_id)):
+                $filename = $date . '/nonspam/' . $message_id;
                 break;
-            case (file_exists($qdir . '/' . $date . '/spam/' . $_GET['id'])):
-                $_GET['filename'] = $date . '/spam/' . $_GET['id'];
+            case (file_exists($quarantine_dir . '/' . $date . '/spam/' . $message_id)):
+                $filename = $date . '/spam/' . $message_id;
                 break;
-            case (file_exists($qdir . '/' . $date . '/mcp/' . $_GET['id'])):
-                $_GET['filename'] = $date . '/mcp/' . $_GET['id'];
+            case (file_exists($quarantine_dir . '/' . $date . '/mcp/' . $message_id)):
+                $filename = $date . '/mcp/' . $message_id;
                 break;
-            case (file_exists($qdir . '/' . $date . '/' . $_GET['id'] . '/message')):
-                $_GET['filename'] = $date . '/' . $_GET['id'] . '/message';
+            case (file_exists($quarantine_dir . '/' . $date . '/' . $message_id . '/message')):
+                $filename = $date . '/' . $message_id . '/message';
                 break;
         }
 
-        // File is local
-        if (!isset($_GET['filename'])) {
-            die("No input filename");
-        } else {
-            // SECURITY - strip off any potential nasties
-            $_GET['filename'] = preg_replace('[\.\/|\.\.\/]', '', $_GET['filename']);
-            $filename = get_conf_var('QuarantineDir') . "/" . $_GET['filename'];
-            if (!@file_exists($filename)) {
-                die("Error: file not found\n");
-            }
-            $file = file_get_contents($filename);
+        if (!@file_exists($quarantine_dir . '/' . $filename)) {
+            die("Error: file not found\n");
         }
+        $file = file_get_contents($quarantine_dir . '/' . $filename);
     }
 }
 
@@ -104,71 +108,77 @@ $params['decode_bodies'] = true;
 $params['decode_headers'] = true;
 $params['input'] = $file;
 
-$structure = Mail_mimeDecode::decode($params);
-$mime_struct = Mail_mimeDecode::getMimeNumbers($structure);
+$Mail_mimeDecode = new Mail_mimeDecode($file);
+$structure = $Mail_mimeDecode->decode($params);
+$mime_struct = $Mail_mimeDecode->getMimeNumbers($structure);
 
-echo "<table border=0 cellspacing=1 cellpadding=1 class=\"maildetail\" width=100%>\n";
+echo '<table border="0" cellspacing="1" cellpadding="1" class="maildetail" width="100%">' . "\n";
 echo " <thead>\n";
 if ($using_rpc) {
-    $title = "Message Viewer: " . $_GET['id'] . " on " . $row->hostname;
+    $title = __('msgviewer06') .": " . $message_id . " on " . $message->hostname;
 } else {
-    $title = "Message Viewer: " . $_GET['id'];
+    $title = __('msgviewer06') .": " . $message_id;
 }
-echo "  <th colspan=2>$title</th>\n";
+echo "  <tr>\n";
+echo "    <th colspan=2>$title</th>\n";
+echo "  </tr>\n";
 echo " </thead>\n";
 
-function lazy($title, $val)
+function lazy($title, $val, $dohtmlentities = true)
 {
+    if ($dohtmlentities) {
+        $v = htmlentities($val);
+    } else {
+        $v = $val;
+    }
+    $titleintl = $title;
+    switch ($title) {
+        case "Date:":
+            $titleintl = __('date06');
+            break;
+        case "From:":
+            $titleintl = __('from06');
+            break;
+        case "To:":
+            $titleintl = __('to06');
+            break;
+        case "Subject:":
+            $titleintl = __('subject06');
+            break;
+    }
     echo ' <tr>
-   <td class="heading" align="right" width="10%">' . $title . '</td>
-   <td class="detail" width="80%">' . $val . '</td>
+   <td class="heading" align="right" width="10%">' . $titleintl . '</td>
+   <td class="detail" width="80%">' . $v . '</td>
    </tr>' . "\n";
 }
 
 // Display the headers
-switch (true) {
-    case isset($structure->headers['date']):
-        if (function_exists('mb_check_encoding')) {
-            if (!mb_check_encoding($structure->headers['date'], 'UTF-8')) {
-                $structure->headers['date'] = mb_convert_encoding($structure->headers['date'], 'UTF-8');
-            }
-        } else {
-            $structure->headers['date'] = utf8_encode($structure->headers['date']);
+$header_fields = array(
+    array('name' => 'date', 'replaceQuote' => false),
+    array('name' => 'from', 'replaceQuote' => true),
+    array('name' => 'to', 'replaceQuote' => true),
+    array('name' => 'subject', 'replaceQuote' => false),
+);
+
+foreach ($header_fields as $field) {
+    if (isset($structure->headers[$field['name']])) {
+        /* this is a quick hack to fix issue #154, This need to be recoded in next version */
+        if (is_array($structure->headers[$field['name']])) {
+            $structure->headers[$field['name']] = implode("; ", $structure->headers[$field['name']]);
         }
-        lazy("Date:", $structure->headers['date']);
-    case isset($structure->headers['from']):
-        if (function_exists('mb_check_encoding')) {
-            if (!mb_check_encoding($structure->headers['from'], 'UTF-8')) {
-                $structure->headers['from'] = mb_convert_encoding($structure->headers['from'], 'UTF-8');
-            }
-        } else {
-            $structure->headers['from'] = utf8_encode($structure->headers['from']);
+        $structure->headers[$field['name']] = getUTF8String($structure->headers[$field['name']]);
+        if ($field['replaceQuote']) {
+            $structure->headers[$field['name']] = str_replace('"', '', $structure->headers[$field['name']]);
         }
-        lazy("From:", str_replace('"', '', $structure->headers['from']));
-    case isset($structure->headers['to']):
-        if (function_exists('mb_check_encoding')) {
-            if (!mb_check_encoding($structure->headers['to'], 'UTF-8')) {
-                $structure->headers['to'] = mb_convert_encoding($structure->headers['to'], 'UTF-8');
-            }
-        } else {
-            $structure->headers['to'] = utf8_encode($structure->headers['to']);
-        }
-        lazy("To:", str_replace('"', '', $structure->headers['to']));
-    case isset($structure->headers['subject']):
-        if (function_exists('mb_check_encoding')) {
-            if (!mb_check_encoding($structure->headers['subject'], 'UTF-8')) {
-                $structure->headers['subject'] = mb_convert_encoding($structure->headers['subject'], 'UTF-8');
-            }
-        } else {
-            $structure->headers['subject'] = utf8_encode($structure->headers['subject']);
-        }
-        lazy("Subject:", $structure->headers['subject']);
+        lazy(ucfirst($field['name']) . ':', $structure->headers[$field['name']]);
+    }
 }
 
-if (($row->virusinfected == 0 && $row->nameinfected == 0 && $row->otherinfected == 0) || $_SESSION['user_type'] == 'A') {
+if (($message->virusinfected == 0 && $message->nameinfected == 0 && $message->otherinfected == 0) || $_SESSION['user_type'] == 'A') {
     lazy(
-        "Actions:",
-        "<a href=\"javascript:void(0)\" onClick=\"do_action('" . $row->id . "','release')\">Release this message</a> | <a href=\"javascript:void(0)\" onClick=\"do_action('" . $row->id . "','delete')\">Delete this message</a>"
+        __('actions06') . ":",
+        "<a href=\"javascript:void(0)\" onclick=\"do_action('" . $message->id . "','release')\">" . __('releasemsg06') . "</a> | <a href=\"javascript:void(0)\" onclick=\"do_action('" . $message->id . "','delete')\">" . __('deletemsg06') . "</a>",
+        false
     );
 }
 
@@ -180,11 +190,11 @@ foreach ($mime_struct as $key => $part) {
     switch ($type) {
         case "text/plain":
         case "text/html":
-            echo " <tr>\n";
-            echo "  <td colspan=2>\n";
-            echo "   <iframe frameborder=0 width=\"100%\" height=300 src=\"viewpart.php?id=" . $_GET['id'] . "&filename=" . $_GET['filename'] . "&part=" . $part->mime_id . "\"></iframe>\n";
-            echo "  </td>\n";
-            echo " </tr>\n";
+            echo ' <tr>' . "\n";
+            echo '  <td colspan="2">' . "\n";
+            echo '   <iframe frameborder=0 width="100%" height=300 src="viewpart.php?id=' . $message_id . '&amp;part=' . $part->mime_id . '"></iframe>' . "\n";
+            echo '  </td>' . "\n";
+            echo ' </tr>' . "\n";
             break;
         case "message/rfc822":
             break;
@@ -194,10 +204,21 @@ foreach ($mime_struct as $key => $part) {
             break;
         default:
             echo " <tr>\n";
-
-            echo "  <td colspan=2 class=\"detail\">" . $part->d_parameters['filename'];
-            if (($row->virusinfected == 0 && $row->nameinfected == 0 && $row->otherinfected == 0) || $_SESSION['user_type'] == 'A') {
-                echo " <a href=\"viewpart.php?id=" . $_GET['id'] . "&filename=" . $_GET['filename'] . "&part=" . $part->mime_id . "\">Download</a>";
+            echo "  <td colspan=2 class=\"detail\">";
+            if (property_exists($part, 'd_parameters')) {
+                if (isset($part->d_parameters['filename'])) {
+                    echo $part->d_parameters['filename'];
+                } else {
+                    echo 'Attachment without name';
+                }
+                if (isset($part->d_parameters['size'])) {
+                    echo '&nbsp;(size ' . formatSize($part->d_parameters['size']) . ')';
+                }
+            } else {
+                echo 'Attachment without name';
+            }
+            if (($message->virusinfected == 0 && $message->nameinfected == 0 && $message->otherinfected == 0) || $_SESSION['user_type'] == 'A') {
+                echo ' <a href="viewpart.php?id=' . $message_id . '&amp;part=' . $part->mime_id . '">Download</a>';
             }
             echo "  </td>";
 

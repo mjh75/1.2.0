@@ -1,204 +1,209 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
 //Require files
-require_once('./functions.php');
+require_once(__DIR__ . '/functions.php');
 
 // Authentication verification and keep the session alive
 session_start();
-require('./login.function.php');
+require(__DIR__ . '/login.function.php');
 
 html_start("GeoIP Database Update", 0, false, false);
 
 if (!isset($_POST['run'])) {
-
-    echo '<form method="POST" action="' . $_SERVER['PHP_SELF'] . '">
+    echo '<form method="POST" action="geoip_update.php">
 	 <input type="hidden" name="run" value="true">
 	 <table class="boxtable" width="100%">
-	 <tr>
-	 <td>
-	 This utility is used to update the SQL database with up-to-date GeoIP data from <a href="http://dev.maxmind.com/geoip/legacy/geolite/" target="_maxmind">MaxMind</a> which is used to work out the country of origin for any given IP address and is displayed on the Message Detail page.<br>
-	 <br>
-	 </td>
-	 </tr>
-	 <tr>
-	 <td align="center"><br><input type="SUBMIT" value="Run Now"><br><br></td>
-	 </tr>
+            <tr><th>';
+    echo __('updategeoip10');
+    echo '</th></tr>
+	    <tr>
+	        <td>
+                    <br>
+	            This utility is used to download the GeoIP database files (which are updated on the first Tuesday of each month) from <a href="http://dev.maxmind.com/geoip/legacy/geolite/" target="_maxmind">MaxMind</a> which is used to work out the country of origin for any given IP address and is displayed on the Message Detail page.<br><br>
+	        </td>
+	    </tr>
+	    <tr>
+	        <td align="center"><br><input type="SUBMIT" value="Run Now"><br><br></td>
+	    </tr>
 	 </table>
 	 </form>' . "\n";
-
 } else {
+    require_once(__DIR__ . '/lib/request/Requests.php');
+    Requests::register_autoloader();
+
     ob_start();
-    echo "Downloading file, please wait....<BR>\n";
+    echo 'Downloading file, please wait....<br>' . "\n";
 
-    $file1 = './temp/GeoIPCountryCSV.zip';
-    $file2 = './temp/GeoIPCountryWhois.csv';
-    $file3 = './temp/GeoIPv6.csv.gz';
-    $file4 = './temp/GeoIPv6.csv';
+    $files_base_url = 'http://geolite.maxmind.com';
+    $files['ipv4']['description'] = 'GeoIP IPv4 data file';
+    $files['ipv4']['path'] = '/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz';
+    $files['ipv4']['destination'] = __DIR__ . '/temp/GeoIP.dat.gz';
+    $files['ipv6']['description'] = 'GeoIP IPv6 data file';
+    $files['ipv6']['path'] = '/download/geoip/database/GeoIPv6.dat.gz';
+    $files['ipv6']['destination'] = __DIR__ . '/temp/GeoIPv6.dat.gz';
+
+    $extract_dir = __DIR__ . '/temp/';
+
     // Clean-up from last run
-    if (file_exists($file1)) {
-        unlink($file1);
+    foreach ($files as $file) {
+        if (file_exists($file['destination'])) {
+            unlink($file['destination']);
+        }
     }
-    if (file_exists($file2)) {
-        unlink($file2);
-    }
-    if (file_exists($file3)) {
-        unlink($file3);
-    }
-    if (file_exists($file4)) {
-        unlink($file4);
-    }
-    $LINKGEOIPv4 = "http://geolite.maxmind.com/download/geoip/database/GeoIPCountryCSV.zip";
-    $LINKGEOIPv6 = "http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz";
-    $OUTDIR = "./temp/";
-
     ob_flush();
+    flush();
 
-    // changing to cURL rather than fopen
-    if (!file_exists($file1) && !file_exists($file3)) {
-        if (is_writable($OUTDIR) && is_readable($OUTDIR)) {
-            //////////////////////// IPv4 ///////////////////////////////////////////////////
+    if (!file_exists($files['ipv4']['destination']) && !file_exists($files['ipv6']['destination'])) {
+        if (is_writable($extract_dir) && is_readable($extract_dir)) {
+            if (function_exists('fsockopen') || extension_loaded('curl')) {
+                $requestSession = new Requests_Session($files_base_url . '/');
+                $requestSession->useragent = 'MailWatch/' . str_replace(array(' - ', ' '), array('-', '-'),
+                        mailwatch_version());
 
-            ////////////////////////////////////
-            /// Initialize the cURL session ////
-            ////////////////////////////////////
-            $curl_var1 = curl_init();
+                if (USE_PROXY === true) {
+                    if (PROXY_USER != '') {
+                        $requestSession->options['proxy']['authentication'] = array(
+                            PROXY_SERVER . ':' . PROXY_PORT,
+                            PROXY_USER,
+                            PROXY_PASS
+                        );
+                    } else {
+                        $requestSession->options['proxy']['authentication'] = array(
+                            PROXY_SERVER . ':' . PROXY_PORT
+                        );
+                    }
 
-            /////////////////////////////////////////////////////////
-            //////  Set the URL of the page or file to download. ////
-            /////////////////////////////////////////////////////////
-            curl_setopt($curl_var1, CURLOPT_URL, $LINKGEOIPv4);
-
-            // Create the file
-            $fp1 = fopen($file1, "w+");
-            curl_setopt($curl_var1, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl_var1, CURLOPT_BINARYTRANSFER, 1);
-            curl_setopt($curl_var1, CURLOPT_FILE, $fp1);
-
-            // PROXY for curl
-            if (USE_PROXY == "true") {
-                $proxy_server = "" . PROXY_SERVER . "";
-                $proxy_port = "" . PROXY_PORT . "";
-                $proxy_type = "" . PROXY_TYPE . "";
-                $loginpassw = "" . PROXY_USER . ":" . PROXY_PASS . "";
-                curl_setopt($curl_var1, CURLOPT_PROXYPORT, $proxy_port);
-                curl_setopt($curl_var1, CURLOPT_PROXYTYPE, $proxy_type);
-                curl_setopt($curl_var1, CURLOPT_PROXY, $proxy_server);
-                if (PROXY_USER != '') {
-                    curl_setopt($curl_var1, CURLOPT_PROXYUSERPWD, $loginpassw);
+                    switch (PROXY_TYPE) {
+                        case 'HTTP':
+                        case 'CURLPROXY_HTTP': //BC for old constant name
+                            //$requestProxy = new Requests_Proxy_HTTP($requestProxyParams);
+                            $requestSession->options['proxy']['type'] = 'HTTP';
+                            break;
+                        case 'SOCKS5':
+                        case 'CURLPROXY_SOCKS5': //BC for old constant name
+                            $requestSession->options['proxy']['type'] = 'SOCKS5';
+                            break;
+                        default:
+                            die('Proxy type should be either "HTTP" or "SOCKS5", check your configuration file');
+                    }
                 }
-            }
-            ////////////////////////////////////////////////////////////////
-            ///// Set the timeout to allow curl to finish the download//////
-            ////////////////////////////////////////////////////////////////
-            curl_setopt($curl_var1, CURLOPT_TIMEOUT, 180);
 
-            /////////////////////  IPv6 /////////////////////////////////////////////////////
+                foreach ($files as $file) {
+                    try {
+                        $requestSession->filename = $file['destination'];
+                        $result = $requestSession->get($file['path']);
+                        if ($result->success === true) {
+                            echo $file['description'] . ' successfully downloaded<br>' . "\n";
+                        }
+                    } catch (Requests_Exception $e) {
+                        echo 'Error occurred while downloading ' . $file['description'] . ': ' . $e->getMessage() . "<br>\n";
+                    }
 
-            ////////////////////////////////////
-            /// Initialize the cURL session ////
-            ////////////////////////////////////
-            $curl_var2 = curl_init();
-
-            /////////////////////////////////////////////////////////
-            //////  Set the URL of the page or file to download. ////
-            /////////////////////////////////////////////////////////
-            curl_setopt($curl_var2, CURLOPT_URL, $LINKGEOIPv6);
-
-            // Create the file
-            $fp2 = fopen($file3, "w+");
-            curl_setopt($curl_var2, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl_var2, CURLOPT_BINARYTRANSFER, 1);
-            curl_setopt($curl_var2, CURLOPT_FILE, $fp2);
-
-            // PROXY for curl
-            if (USE_PROXY == "true") {
-                $proxy_server = "" . PROXY_SERVER . "";
-                $proxy_port = "" . PROXY_PORT . "";
-                $proxy_type = "" . PROXY_TYPE . "";
-                $loginpassw = "" . PROXY_USER . ":" . PROXY_PASS . "";
-                curl_setopt($curl_var2, CURLOPT_PROXYPORT, $proxy_port);
-                curl_setopt($curl_var2, CURLOPT_PROXYTYPE, $proxy_type);
-                curl_setopt($curl_var2, CURLOPT_PROXY, $proxy_server);
-                if (PROXY_USER != '') {
-                    curl_setopt($curl_var2, CURLOPT_PROXYUSERPWD, $loginpassw);
+                    ob_flush();
+                    flush();
                 }
-            }
-            ////////////////////////////////////////////////////////////////
-            ///// Set the timeout to allow curl to finish the download//////
-            ////////////////////////////////////////////////////////////////
-            curl_setopt($curl_var2, CURLOPT_TIMEOUT, 180);
 
-            // Download GeoIP CSV file
-            if (curl_exec($curl_var1) && curl_exec($curl_var2)) {
-                // Close the curl connection
-                curl_close($curl_var1);
-                // Close the file connection
-                fclose($fp1);
-                // Unset the file variable
-                unset($fp1);
-                // Close the curl connection
-                curl_close($curl_var2);
-                // Close the file connection
-                fclose($fp2);
-                // Unset the file variable
-                unset($fp2);
+                echo 'Download complete, unpacking files...<br>' . "\n";
+                ob_flush();
+                flush();
+            } elseif (!in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+                //wget
+                $proxyString = '';
+                if (USE_PROXY) {
+                    if (PROXY_USER != '') {
+                        $proxyString = '-e use_proxy=on -e http_proxy=' . PROXY_SERVER . ':' . PROXY_PORT . ' --proxy-user=' . PROXY_USER . ' --proxy-password=' . PROXY_PASS;
+                    } else {
+                        $proxyString = '-e use_proxy=on -e http_proxy=' . PROXY_SERVER . ':' . PROXY_PORT;
+                    }
+                }
 
-                // Unzip the IPv4 file (unzip required)
-                $exec = exec('unzip -d ' . $OUTDIR . ' ' . $file1, $output, $retval);
-
-                // Gunzip the IPv6 file (gunzip required)
-                $exec = exec('gunzip ' . $OUTDIR . ' ' . $file3, $output1, $retval1);
-
-                if ($retval == 0) {
-                    // Drop the data from the table
-                    dbquery("DELETE FROM geoip_country");
-
-                    // Load the data
-                    dbquery("LOAD DATA LOCAL INFILE '" . $file2 . "' INTO TABLE geoip_country FIELDS TERMINATED BY ',' ENCLOSED BY '\"'");
-                    dbquery("LOAD DATA LOCAL INFILE '" . $file4 . "' INTO TABLE geoip_country FIELDS TERMINATED BY ',' ENCLOSED BY '\"'");
-
-                    // Done return the number of rows
-                    echo "Download complete ... " . mysql_result(
-                            dbquery("SELECT COUNT(*) FROM geoip_country"),
-                            0
-                        ) . " rows imported.<br>\n";
-
-                    audit_log('Ran GeoIP update');
-
-                } else {
-                    // If it was unable to unzip the the file display this erro
-                    die("Unzip failed:<br>Error: " . join("<br>", $output) . "<br>" . join("<br>", $output1) . "\n");
+                foreach ($files as $file) {
+                    exec('wget ' . $proxyString . ' -N ' . $files_base_url . $file['path'] . ' -O ' . $file['destination'],
+                        $output_wget, $retval_wget);
+                    if ($retval_wget > 0) {
+                        echo 'Error occurred while downloading ' . $file['description'] . "<br>\n";
+                    } else {
+                        echo $file['description'] . ' successfully downloaded<br>' . "\n";
+                    }
                 }
             } else {
-                // unable to download the file correctly
-                die("Unable to download GeoIP data file.\n");
+                $error_message = "Unable to download GeoIP data file (tried CURL and fsockopen).<br>\n";
+                $error_message .= "Install either cURL extension (preferred) or enable fsockopen in your php.ini";
+                die($error_message);
             }
+            // Extract files
+            echo "<br>\n";
+            if (function_exists('gzopen')) {
+                foreach ($files as $file) {
+                    $zp_gz = gzopen($file['destination'], 'r');
+                    $targetFile = fopen(str_replace('.gz', '', $file['destination']), 'wb');
+                    while ($string = gzread($zp_gz, 4096)) {
+                        fwrite($targetFile, $string, strlen($string));
+                    }
+                    gzclose($zp_gz);
+                    fclose($targetFile);
+                    echo $file['description'] . ' successfully unpacked<br>' . "\n";
+                    unlink($file['destination']);
+                    ob_flush();
+                    flush();
+                }
+            } elseif (!in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+                foreach ($files as $file) {
+                    exec('gunzip -f ' . $file['destination'], $output_gunzip, $retval_gunzip);
+                    if ($retval_gunzip > 0) {
+                        die('Unable to extract' . $file['description'] . "<br>\n");
+                    } else {
+                        echo $file['description'] . ' successfully extracted<br>' . "\n";
+                    }
+                }
+            } else {
+                // unable to extract the file correctly
+                $error_message = "Unable to extract GeoIP data file.<br>\n";
+                $error_message .= "Enable Zlib in your PHP installation or install gunzip executable";
+                die($error_message);
+            }
+
+            echo 'Process completed!' . "\n";
+            ob_flush();
+            flush();
+            audit_log('Ran GeoIP update');
         } else {
             // unable to read or write to the directory
-            die("Unable to read or write to the" . $OUTDIR . ".\n");
+            die("Unable to read or write to the " . $extract_dir . " directory.\n");
         }
     } else {
-        die("Files still exist for some reason\n");
+        $error_message = "Files still exist for some reason.<br>\n";
+        $error_message .= "Delete them manually from $extract_dir";
+        die($error_message);
     }
 }
 

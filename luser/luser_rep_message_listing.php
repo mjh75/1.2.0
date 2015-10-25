@@ -1,27 +1,37 @@
 <?php
+
 /*
- MailWatch for MailScanner
- Copyright (C) 2003  Steve Freegard (smf@f2s.com)
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
 require_once('../functions.php');
 require_once('./luser_functions.php');
-require_once('DB.php');
-require_once('DB/Pager.php');
+require_once('Pager.php');
 require_once('../filter.inc');
 session_start();
 //authenticate();
@@ -91,7 +101,7 @@ echo " <THEAD>\n";
 // Previous page link
 // tgf - Don't show a Prev link on the first page.
 if ($data['current'] != '1') {
-    printf('<TH ALIGN="CENTER"><A HREF="%s?offset=%d">&lt;&lt;Prev</A></TH>', $_SERVER['PHP_SELF'], $data['prev']);
+    printf('<TH ALIGN="CENTER"><A HREF="%s?offset=%d">&lt;&lt;Prev</A></TH>', sanitizeInput($_SERVER['PHP_SELF']), $data['prev']);
 } else {
     printf('<TH ALIGN="CENTER">&nbsp;</TH>');
 }
@@ -101,7 +111,7 @@ echo "  <TH COLSPAN=6>Showing records " . $data['from'] . " to " . $data['to'] .
 // Next page link
 // tgf - Don't show a Next link on the last page.
 if ($data['current'] != $data['numpages']) {
-    printf('<TH ALIGN="CENTER"><A HREF="%s?offset=%d">Next&gt;&gt;</A></TH>', $_SERVER['PHP_SELF'], $data['next']);
+    printf('<TH ALIGN="CENTER"><A HREF="%s?offset=%d">Next&gt;&gt;</A></TH>', sanitizeInput($_SERVER['PHP_SELF']), $data['next']);
 } else {
     printf('<TH ALIGN="CENTER">&nbsp;</TH>');
 }
@@ -182,7 +192,7 @@ echo "  <TABLE WIDTH=100% BORDER=0><TR>\n";
 if ($data['current'] != '1') {
     printf(
         '<TD ALIGN="CENTER"><A HREF="%s?offset=%d">&lt;&lt;Prev</A></TD><TD ALIGN="CENTER">',
-        $_SERVER['PHP_SELF'],
+        sanitizeInput($_SERVER['PHP_SELF']),
         $data['prev']
     );
 } else {
@@ -192,7 +202,7 @@ if ($data['current'] != '1') {
 // Links to each page
 foreach ($data['pages'] as $page => $start) {
     if ($data['current'] != $page) {
-        printf('<A HREF="%s?offset=%d">%s</A> ', $_SERVER['PHP_SELF'], $start, $page);
+        printf('<A HREF="%s?offset=%d">%s</A> ', sanitizeInput($_SERVER['PHP_SELF']), $start, $page);
     } else {
         printf('%s ', $page);
     }
@@ -201,7 +211,7 @@ foreach ($data['pages'] as $page => $start) {
 // Next page link
 // tgf - Don't show a Next link on the last page.
 if ($data['current'] != $data['numpages']) {
-    printf('</TD><TD ALIGN="CENTER"><A HREF="%s?offset=%d">Next&gt;&gt;</A></TD>', $_SERVER['PHP_SELF'], $data['next']);
+    printf('</TD><TD ALIGN="CENTER"><A HREF="%s?offset=%d">Next&gt;&gt;</A></TD>', sanitizeInput($_SERVER['PHP_SELF']), $data['next']);
 } else {
     printf('</TD><TD ALIGN="CENTER">&nbsp;</TD>');
 }

@@ -1,8 +1,82 @@
-1.2.0 - DEV
+1.2.0 - RC1 DEV
+-----------
+ - Display load average if /proc/loadavg doesn't exists but /usr/bin/uptime does
+ - Improve loggings for connections not coming from 127.0.0.1
+ - Add hide High Spam and High MCP options
+ - Update geoip.inc to v1.15
+ - Fix path in the install manual
+ - Add Microsoft Active Directory compatibility support
+ - Fix timezone warning on sf_version and viewmail
+ - Check GeoIP data file size before using GeoIP functions
+ - Add hide Non Spam option
+ - Quick hack on fixing duplicate header issue (#154)
+ - Fix reports graph color management
+ - A better sendmail_relay init file
+ - Fix GeoIP extension and php libary conflict on constants definition
+ - get_conf_truefalse returns true if value is a string
+ - Enable LDAP over SSL
+ - Fix virus count sorting on "Virus Report"
+ - Remove additional slashes in "SpamAssassin Rule Description Update"
+ - Adding translation to user interface
+ - Add LOGO path in conf.php.example and changes done in corresponding files.
+ - Layout changes in quarantine.php, other.php, sf_version.php
+ - Removed duplicate PHP function in tools/Cron_jobs/quarantine_report.php (is in functions.php)
+ - Changes in tools/Sendmail_relay/INSTALL (to be accurate with Debian/Ubuntu)
+ - Changes in tools/Sendmail_relay/sendmail_relay.init (change maillog to mail.log)
+ - Background color change in login.php
+ - Add clamav and spamassassin version in sf_version.php
+ - Changes in INSTALL and UPGRADING (to be accurate with Debian/Ubuntu)
+ - Modified footer function in functions.php (page footer and DEBUG for page_creation_timer)
+ - Add a check for 'subtests=' to add space after comma (to fit the screen) in sa_lint.php
+ - Upgrade password hash function from MD5 to a crypt() compatible one
+ - Add option to enable/disable IP address resolution on status page
+ - Improving upgrade.php script
+ - Sanitize user input on reports
+ - Rewrite of GeoIP file download procedure
+
+1.2.0 - Beta 8
 -----------
 
+ - Correct unexpected behaviour in viewpart.php if one or more headers are not set
+ - Refactor message part viewer
+ - Sanitize user input
+ - Hide MCP-related fields if MCP is not enabled in MailScanner
+
+1.2.0 - Beta 7
+-----------
+
+ - Fix documentation regarding magic_quotes_gpc
+ - Redirect to original link after login (e.g. from quarantine report)
+ - Fix to GPL v2 licensing problems
+ - Updated MailScanner default path to comply with version 4.85.2-1
+ - Add `--max-size` support to `sa-learn` if spamassassin >= 3.4.0
+ - Separate release action in Message Operations from Spam/Ham/Forget radio button
+ - Domain Administrator get all domain emails if their username is either an email address or a domain name
+
+1.2.0 - Beta 6
+-----------
+
+ - Enhanced MailScanner.conf parser to catch variable's value even if there is no space before and/or after = sign
+ - Added DISPLAY_IP option to show sender's IP Address in Quarantine listings and message lists
+ - Enhanced SQL Black/Whitelist to allow matching 1, 2, or 3 IP address octets
+ - Enhanced SQL Black/Whitelist to allow matching of subdomains
+ - Upgraded PEAR packages to last stable versions (some trunk commit was used)
+ - Enable UTF-8 subject encoding
+ - Fix conflict with GeoIP PHP extension
+
+1.2.0 - Beta 5
+-----------
+
+ - Reorganized all libraries to lib directory, removed fpdf (which was not used) and removed lib's symlinks
+ - Moved to GeoIP binary data file, dropped CSV import to database
+ - Added a layer of security to cronjob, which don't execute if needed variables aren't set
+ - Improved compatibility with PHP 5.5
+ - New login form design
+ - Added LDAP mail field variable to be compatible with more systems
+ - Corrected free disk space calculation
+ - Fixed Domain User operation on white/black lists
+ - Added the ability to show/hide the software version page
  - Added MailScanner Rule Editor functionality from http://msre.sourceforge.net/
-  
    Fixes over original MSRE:
    -  Requires authenticated MailWatch Admin user
    -  Rules with 'action' of 0 are now correctly handled (as in size rules).
@@ -27,8 +101,9 @@
  - Corrected html and javascript errors
  - Removed W3C and SourceForge logos from footer
  - Fixed spelling mistakes/typos
+ - Code cleanup
 
-1.2.0 - beta 4 patch 4
+1.2.0 - Beta 4 patch 4
 ----------------------
 
  - Fixed create.sql for some incorrect parts
@@ -38,23 +113,23 @@
    lists.php
  - Updated functions.php
 
-1.2.0 - beta 4
+1.2.0 - Beta 4
 --------------
 
  - Fix the mime.php due to a mistype
  - Fix geoip_update.php for a mistype
 
-1.2.0 - Beta3
+1.2.0 - Beta 3
 -------------
 
  - Fix for XSS issue
 
-1.2.0 - Beta2
+1.2.0 - Beta 2
 -------------
 
  - Fix for CentOS 6 not respecting issues with ./
 
-1.2.0 - Beta1
+1.2.0 - Beta 1
 -------------
 
  - Fixed db_clean.php to remove items correctly.
@@ -63,7 +138,7 @@
  - Values from the MailScanner include directory are respected throughout the product
  - Added LDAP Support
  - Corrected issues for PHP5
- - New pagenation function that is cleaner and faster
+ - New pagination function that is cleaner and faster
  - Now using MDB2
  - HTML4.0 Strict
  - Changed the way the black and white list work
@@ -147,8 +222,8 @@
 1.1
 ----
 
- - Mailwatch can now monitor postfix
- - Mailscanner --lint form the Mailwatch
+ - MailWatch can now monitor postfix
+ - Mailscanner --lint form the MailWatch
  - new jpgraph
  - updated xmlrpc
  - new auth verification

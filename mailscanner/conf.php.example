@@ -1,25 +1,33 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
-
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
 ///////////////////////////////////////////////////////////////////////////////
 // Settings - modify to suit your configuration
@@ -27,6 +35,10 @@
 
 // Debug messages
 define('DEBUG', false);
+
+// Define language (de, en, fr, it, nl, pt_br);
+// See http://www.lingoes.net/en/translator/langcode.htm
+define('LANG', 'en');
 
 // Database settings
 //
@@ -36,34 +48,36 @@ define('DEBUG', false);
 // (IE) Do not use your main-global-admin accounts.
 //
 define('DB_TYPE', 'mysql');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_USER', 'mailwatch');
+define('DB_PASS', 'mailwatch');
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'mailscanner');
-define('DB_DSN', DB_TYPE.'://'.DB_USER.":".DB_PASS."@".DB_HOST."/".DB_NAME);
+define('DB_DSN',  DB_TYPE.'://'.DB_USER.":".DB_PASS."@".DB_HOST."/".DB_NAME);
 
 // LDAP settings
-define('USE_LDAP',		 '0');
-define('LDAP_HOST',      'server.example.com');
-define('LDAP_PORT',      '389');
-define('LDAP_DN',        'DC=example,DC=com');
-define('LDAP_USER',      'LDAPProxy@example.com');
-define('LDAP_PASS',      'secret');
-define('LDAP_SITE',      'default');
+define('USE_LDAP',         false);
+define('LDAP_SSL',         false); // set to true if using LDAP with SSL encryption
+define('LDAP_HOST',        'server.example.com');
+define('LDAP_PORT',        '389');
+define('LDAP_DN',          'DC=example,DC=com');
+define('LDAP_USER',        'LDAPProxy@example.com');
+define('LDAP_PASS',        'secret');
+define('LDAP_SITE',        'default');
+// can be set to 'proxyaddresses' or 'mail'. Please refer to your LDAP system manual for the right keyword
+define('LDAP_EMAIL_FIELD', 'proxyaddresses');
+// Microsoft Active Directory compatibility support for searches from Domain Base DN
+define('LDAP_MS_AD_COMPATIBILITY', false);
 
 // Set Time Zone
+// See http://php.net/manual/en/timezones.php for a list of usable timezones
 define('TIME_ZONE', 'America/New_York');
-/*
-For a list of usable timezones please check:
-http://php.net/manual/en/timezones.php
-*/
 
 // Proxy Settings
-define('USE_PROXY', 'false');
+define('USE_PROXY', false);
 define('PROXY_SERVER', '127.0.0.1');
 define('PROXY_PORT', '8080');
-// Can be set to CURLPROXY_HTTP or CURLPROXY_SOCKS5
-define('PROXY_TYPE', 'CURLPROXY_HTTP');
+// Can be set to HTTP or SOCKS5
+define('PROXY_TYPE', 'HTTP');
 // If left blank no authenication will be used
 define('PROXY_USER', '');
 define('PROXY_PASS', '');
@@ -71,25 +85,35 @@ define('PROXY_PASS', '');
 // Paths
 define('MAILWATCH_HOME', '/var/www/html/mailscanner');
 define('MS_CONFIG_DIR', '/etc/MailScanner/');
-define('MS_LIB_DIR', '/usr/lib/MailScanner/');
+define('MS_LIB_DIR', '/usr/share/MailScanner/');
+define('MS_EXECUTABLE_PATH', '/usr/sbin/MailScanner');
 define('IMAGES_DIR', './images/'); // trailing slash needed
 define('CACHE_DIR', './images/cache/'); // JpGraph cache
-define('TTF_DIR','./jpgraph/src/fonts/'); // JpGraph fonts
+define('TTF_DIR','./lib/jpgraph/src/fonts/'); // JpGraph fonts
 define('SA_DIR','/usr/bin/');
 define('SA_RULES_DIR', '/usr/share/spamassassin/');
 define('SA_PREFS', MS_CONFIG_DIR . 'spam.assassin.prefs.conf');
-define('FPDF_FONTPATH','./fpdf/font/');
 define('TEMP_DIR', '/tmp/');
+
+// Define MailWatch logo name
+define('MW_LOGO', 'mailwatch-logo.png');
+
+// Define MailScanner logo name
+define('MS_LOGO', 'mailscannerlogo.gif');
 
 // Log file location
 define('MS_LOG', '/var/log/mail.log');
 define('MAIL_LOG', '/var/log/mail.log');
 
-
 // Default number of results on Recent Messages and Message Listing Report
 define('MAX_RESULTS', 50);
 // Default refresh rate in seconds for the Recent Messages screen
 define('STATUS_REFRESH', 30);
+
+// Display Client IP Address on message listing
+define('DISPLAY_IP', false);
+// Set to true if you want to DNS resolve the IP address displayed (will slow page load)
+define('RESOLVE_IP_ON_DISPLAY', false);
 
 // Set the following to a value greater than zero to limit the length of the
 // From, To and Subject columns in the 'Recent Messages' screen.
@@ -106,16 +130,19 @@ define('RECORD_DAYS_TO_KEEP', 60);
 // Define how many days to audit logs to keep
 define('AUDIT_DAYS_TO_KEEP', 60);
 
-// Show Documentation tab
-define('SHOW_DOC', 'false');
+// Show Software Version tab (only Admins can see it)
+define('SHOW_SFVERSION', true);
 
-// Quarantine settings
+// Show Documentation tab
+define('SHOW_DOC', false);
+
+/* Quarantine settings */
 
 // The quarantine flag is only available on MailScanner >=4.43
 // it will dramtically improved the speed of quarantine operations
-// but requires that you use the quarantine_manager.php in place of
+// but requires that you use the quarantine_maint.php in place of
 // the clean.quarantine script provided with MailScanner.
-define('QUARANTINE_USE_FLAG', false);
+define('QUARANTINE_USE_FLAG', true);
 define('QUARANTINE_DAYS_TO_KEEP', 30);
 define('QUARANTINE_MAIL_HOST', '127.0.0.1');
 define('QUARANTINE_FROM_ADDR', 'postmaster');
@@ -126,15 +153,17 @@ define('QUARANTINE_MSG_BODY', 'Please find the original message that was quarant
 
 Regards,
 Postmaster');
-define('QUARANTINE_REPORT_HOSTURL', 'http://'.chop(`hostname`).'/mailscanner/');
+define('QUARANTINE_REPORT_HOSTURL', 'http://' . rtrim(gethostname()) . '/mailscanner');
 define('QUARANTINE_REPORT_DAYS', 7);
+
+// set QUARANTINE_USE_SENDMAIL to true to send released email as original email using sendmail,
+//                                false to send it as an attachment to a release message
 define('QUARANTINE_USE_SENDMAIL', false);
 define('QUARANTINE_SENDMAIL_PATH', '/usr/sbin/sendmail');
 
 // This turns virus names into links that can be used to get more information
 // about a given virus or virus alias.  Comment out or set to false to disable.
-define('VIRUS_INFO', "http://www.rainingfrogs.co.uk/index.php?virus=%s&search=contains&Search=Search");
-// define('VIRUS_INFO', "http://www.viruslist.com/en/find?search_mode=virus&words=%s");
+define('VIRUS_INFO', "http://www.securelist.com/en/descriptions?words=%s&amp;behavior=&amp;Search=Search&amp;search_type=1");
 
 // When filtering data - only use the envelope 'To' address or 'To' domain.
 // This greatly increases perfomance as MySQL will not use indexes when
@@ -178,9 +207,6 @@ define('AUDIT', false);
 // You'll need to configure MailScanner to use it accordingly.
 define('LISTS', true);
 
-// Are we running on MSEE?
-define('MSEE', false);
-
 // Force SSL connections only?
 define('SSL_ONLY', false);
 
@@ -198,3 +224,15 @@ define('ALLOWED_TAGS', '<a><br><b><body><div><font><h1><h2><h3><h4><head><html><
 define('MSRE', false);
 define('MSRE_RELOAD_INTERVAL', 5);
 define('MSRE_RULESET_DIR', "/etc/MailScanner/rules");
+
+// Spamassassin sa-learn max message size (Spamassassin Version >= 3.4.0)
+// Size is in bytes
+define('SA_MAXSIZE', 0);
+
+// Hide High Spam and high mcp from regular users
+// Prevent regular users from seeing high spam and high mcp
+define('HIDE_HIGH_SPAM', false);
+
+// Hide Non Spam from quarantine reports
+define('HIDE_NON_SPAM', false);
+

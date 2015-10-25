@@ -25,6 +25,7 @@ use Sys::Hostname;
 use Storable(qw[freeze thaw]);
 use POSIX;
 use Socket;
+use Encoding::FixLatin qw(fix_latin);
 
 # Trace settings - uncomment this to debug
 # DBI->trace(2,'/root/dbitrace.log');
@@ -40,8 +41,8 @@ my $timeout = 3600;
 # Modify this as necessary for your configuration
 my($db_name) = 'mailscanner';
 my($db_host) = 'localhost';
-my($db_user) = 'root';
-my($db_pass) = '';
+my($db_user) = 'mailwatch';
+my($db_pass) = 'mailwatch';
 
  sub InitMailWatchLogging {
    my $pid = fork();
@@ -77,7 +78,7 @@ my($db_pass) = '';
    listen(SERVER, SOMAXCONN) or exit;
 
    # Our reason for existence - the persistent connection to the database
-   $dbh = DBI->connect("DBI:mysql:database=$db_name;host=$db_host", $db_user, $db_pass, {PrintError => 0, AutoCommit => 1, RaiseError => 1});
+   $dbh = DBI->connect("DBI:mysql:database=$db_name;host=$db_host", $db_user, $db_pass, {PrintError => 0, AutoCommit => 1, RaiseError => 1, mysql_enable_utf8 => 1});
    if (!$dbh) {
     MailScanner::Log::WarnLog("Unable to initialise database connection: %s", $DBI::errstr);
    }
@@ -85,7 +86,6 @@ my($db_pass) = '';
    $sth = $dbh->prepare("INSERT INTO maillog (timestamp, id, size, from_address, from_domain, to_address, to_domain, subject, clientip, archive, isspam, ishighspam, issaspam, isrblspam, spamwhitelisted, spamblacklisted, sascore, spamreport, virusinfected, nameinfected, otherinfected, report, ismcp, ishighmcp, issamcp, mcpwhitelisted, mcpblacklisted, mcpsascore, mcpreport, hostname, date, time, headers, quarantined) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)") or 
    MailScanner::Log::WarnLog($DBI::errstr);
  }
-
 
  sub ExitLogging {
    # Server exit - commit changes, close socket, and exit gracefully.
@@ -108,6 +108,7 @@ my($db_pass) = '';
      alarm $timeout;
      # Make sure we"re only receiving local connections
      if ($dotted_quad ne "127.0.0.1") {
+        MailScanner::Log::WarnLog("Error: unexpected connection from %s", $dotted_quad);
         close CLIENT;
         next;
      }
@@ -172,7 +173,7 @@ my($db_pass) = '';
     } else {
      MailScanner::Log::InfoLog("$$message{id}: Logged to MailWatch SQL");
     }
-    
+
     # Unset
     $message = undef;
 
@@ -195,7 +196,7 @@ my($db_pass) = '';
 
    # Don't bother trying to do an insert if  no message is passed-in
    return unless $message;
-   
+
    # Fix duplicate 'to' addresses for Postfix users
    my(%rcpts);
    map { $rcpts{$_}=1; } @{$message->{to}};
@@ -222,8 +223,8 @@ my($db_pass) = '';
    # Set quarantine flag - this only works on 4.43.7 or later
    my($quarantined);
    $quarantined = 0;
-   if ( (scalar(@{$message->{quarantineplaces}})) 
-      + (scalar(@{$message->{spamarchive}})) > 0 ) 
+   if ( (scalar(@{$message->{quarantineplaces}}))
+      + (scalar(@{$message->{spamarchive}})) > 0 )
    {
    	$quarantined = 1;
    }
@@ -280,7 +281,7 @@ my($db_pass) = '';
    $msg{from_domain} = $message->{fromdomain};
    $msg{to} = join(",", @{$message->{to}});
    $msg{to_domain} = $todomain;
-   $msg{subject} = $message->{subject};
+   $msg{subject} = fix_latin($message->{utf8subject});
    $msg{clientip} = $clientip;
    $msg{archiveplaces} = join(",", @{$message->{archiveplaces}});
    $msg{isspam} = $message->{isspam};
@@ -305,7 +306,7 @@ my($db_pass) = '';
    $msg{hostname} = $hostname;
    $msg{date} = $date;
    $msg{"time"} = $time;
-   $msg{headers} = join("\n",@{$message->{headers}});
+   $msg{headers} = fix_latin(join("\n",@{$message->{headers}}));
    $msg{quarantined} = $quarantined;
 
    # Prepare data for transmission

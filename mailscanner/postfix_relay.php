@@ -1,52 +1,56 @@
 <?php
 
 /*
- MailWatch for MailScanner
- Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
- Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
-
- adapted for Postfix from original sendmail_relay.php by Kai Schaetzl, 12/2011
- fix for the id= issue 09.12.2011 by Kai Schaetzl
-
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
-
+ * MailWatch for MailScanner
+ * Copyright (C) 2003-2011  Steve Freegard (steve@freegard.name)
+ * Copyright (C) 2011  Garrod Alwood (garrod.alwood@lorodoes.com)
+ * Copyright (C) 2014-2015  MailWatch Team (https://github.com/orgs/mailwatch/teams/team-stable)
+ *
+ * This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * In addition, as a special exception, the copyright holder gives permission to link the code of this program with
+ * those files in the PEAR library that are licensed under the PHP License (or with modified versions of those files
+ * that use the same license as those files), and distribute linked combinations including the two.
+ * You must obey the GNU General Public License in all respects for all of the code used other than those files in the
+ * PEAR library that are licensed under the PHP License. If you modify this program, you may extend this exception to
+ * your version of the program, but you are not obligated to do so.
+ * If you do not wish to do so, delete this exception statement from your version.
+ *
+ * As a special exception, you have permission to link this program with the JpGraph library and distribute executables,
+ * as long as you follow the requirements of the GNU GPL in regard to all of the software in the executable aside from
+ * JpGraph.
+ *
+ * You should have received a copy of the GNU General Public License along with this program; if not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 
 ini_set('error_log', 'syslog');
 ini_set('html_errors', 'off');
 ini_set('display_errors', 'on');
 ini_set('implicit_flush', 'false');
 
-// Edit this to reflect the full path to functions.php
-require("functions.php");
+require(__DIR__ . '/functions.php');
 
 // Set-up environment
 set_time_limit(0);
 
 class syslog_parser
 {
-    var $raw;
-    var $timestamp;
-    var $date;
-    var $time;
-    var $rfctime;
-    var $host;
-    var $process;
-    var $pid;
-    var $entry;
-    var $months = array(
+    public $raw;
+    public $timestamp;
+    public $date;
+    public $time;
+    public $rfctime;
+    public $host;
+    public $process;
+    public $pid;
+    public $entry;
+    public $months = array(
         'Jan' => '1',
         'Feb' => '2',
         'Mar' => '3',
@@ -61,7 +65,7 @@ class syslog_parser
         'Dec' => '12'
     );
 
-    function syslog_parser($line)
+    public function syslog_parser($line)
     {
         // Parse the date, time, host, process pid and log entry 04CF7F970F
         if (preg_match('/^(\S+)\s+(\d+)\s(\d+):(\d+):(\d+)\s(\S+)\s(\S+)\[(\d+)\]:\s(.+)$/', $line, $explode)) {
@@ -92,12 +96,12 @@ class syslog_parser
 
 class postfix_parser
 {
-    var $raw;
-    var $id;
-    var $entry;
-    var $entries;
+    public $raw;
+    public $id;
+    public $entry;
+    public $entries;
 
-    function postfix_parser($line)
+    public function postfix_parser($line)
     {
         $this->raw = $line;
         if (preg_match('/^(\S+):\s(.+)$/', $line, $match)) {
@@ -110,18 +114,8 @@ class postfix_parser
 
             // Extract any key=value pairs
             if (strstr($match[2], '=')) {
-                $items = explode(', ', $match[2]);
-                $entries = array();
-                foreach ($items as $item) {
-                    $entry = explode('=', $item);
-                    $entries[$entry[0]] = $entry[1];
-                    // fix for the id= issue 09.12.2011
-                    if (isset($entry[2])) {
-                        $entries[$entry[0]] = $entry[1] . '=' . $entry[2];
-                    } else {
-                        $entries[$entry[0]] = $entry[1];
-                    }
-                }
+                $pattern = "/to=<(?<to>[^>]*)>, (?:orig_to=<(?<orig_to>[^>]*)>, )?relay=(?<relay>[^,]+), (?:conn_use=(?<conn_use>[^,])+, )?delay=(?<delay>[^,]+), (?:delays=(?<delays>[^,]+), )?(?:dsn=(?<dsn>[^,]+), )?status=(?<status>.*)$/";
+                preg_match($pattern, $match[2], $entries);
                 $this->entries = $entries;
             } else {
                 $this->entry = $match[2];
@@ -174,6 +168,8 @@ function doit($input)
         die("Cannot open pipe");
     }
 
+    dbconn();
+
     $lines = 1;
     while ($line = fgets($fp, 2096)) {
         // Reset variables
@@ -211,7 +207,6 @@ function doit($input)
             // you can use these matches to populate your table with all the various reject reasons etc., so one could get stats about MTA rejects as well
             // example
             if (preg_match('/NOQUEUE/i', $postfix->entry)) {
-                $_status = mysql_real_escape_string($postfix->raw);
                 if (preg_match('/Client host rejected: cannot find your hostname/i', $postfix->entry)) {
                     $_type = mysql_real_escape_string('unknown_hostname');
                 } else {
@@ -227,7 +222,6 @@ function doit($input)
                 $_dsn = mysql_real_escape_string($postfix->entries['dsn']);
                 $_status = mysql_real_escape_string($postfix->entries['status']);
             }
-
         }
         if (isset($_type)) {
             dbquery(
@@ -236,10 +230,12 @@ function doit($input)
         }
         $lines++;
     }
+
+    dbclose();
     pclose($fp);
 }
 
-if ($_SERVER['argv'][1] == "--refresh") {
+if ($_SERVER['argv'][1] == '--refresh') {
     doit('cat ' . MAIL_LOG);
 } else {
     // Refresh first
@@ -247,4 +243,3 @@ if ($_SERVER['argv'][1] == "--refresh") {
     // Start watching the maillog
     doit('tail -F -n0 ' . MAIL_LOG);
 }
-
